@@ -1,0 +1,30 @@
+# Rust build output
+target/
+
+# Rust compiler backup files
+**/*.rs.bk
+
+# Debug files
+*.pdb
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Nix
+result
+.direnv/
+
+# Logs and generated data
+*.log
+data/
+tmp/
+
+# Editors
+.idea/
+.vscode/
+
+# Operating system files
+.DS_Store
+Thumbs.db
