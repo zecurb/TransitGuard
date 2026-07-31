@@ -7,6 +7,7 @@
 pub mod account;
 pub mod credential;
 pub mod equipment;
+pub mod event;
 pub mod identifier;
 pub mod money;
 pub mod transaction;
@@ -37,4 +38,9 @@ pub use transaction::{
     EventTime, FareApprovalReason, FareDecision, FareDecisionError, FarePolicyVersion,
     FareProcessingMode, FareRejectionReason, FareTransaction, FareTransactionError,
     FareTransactionStatus, FareTransactionValueError, LocalSequenceNumber,
+};
+
+pub use event::{
+    AggregateVersion, DomainAggregateId, DomainEvent, DomainEventError, DomainEventPayload,
+    DomainEventTime, DomainEventValueError, StoredValueChangeReason,
 };
