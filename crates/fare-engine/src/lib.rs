@@ -6,6 +6,7 @@
 
 pub mod evaluation;
 pub mod policy;
+pub mod transfer;
 
 pub use evaluation::{
     FareCalculationStage, FareDecisionEvidence, FareEvaluation, FareEvaluationError,
@@ -16,3 +17,5 @@ pub use policy::{
     DiscountBasisPoints, EligibilityDiscounts, FarePolicy, FarePolicyDefinition, FarePolicyError,
     FarePolicyValueError, TransferWindow, ZoneId,
 };
+
+pub use transfer::{TransferApplication, TransferEvaluationError, TransferHistory, apply_transfer};

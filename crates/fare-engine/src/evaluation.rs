@@ -7,7 +7,10 @@ use transitguard_domain::{
     FarePolicyVersion, FareRejectionReason, Money,
 };
 
-use crate::{DiscountBasisPoints, FarePolicy, ZoneId};
+use crate::{
+    DiscountBasisPoints, FarePolicy, TransferEvaluationError, TransferHistory, ZoneId,
+    apply_transfer,
+};
 
 /// The calculation stage that encountered an arithmetic failure.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -58,6 +61,10 @@ pub enum FareEvaluationError {
         balance: Money,
     },
 
+    /// Transfer history or transfer calculation was invalid.
+    #[error(transparent)]
+    Transfer(#[from] TransferEvaluationError),
+
     /// A fare calculation exceeded the supported integer range.
     #[error("fare calculation overflowed during {stage}")]
     ArithmeticOverflow {
@@ -83,6 +90,9 @@ pub struct FareEvaluationInput {
 
     /// Rider eligibility used for discount selection.
     pub eligibility: EligibilityClassification,
+
+    /// Previous paid-fare history used for transfer evaluation.
+    pub transfer_history: TransferHistory,
 
     /// Stored value available before processing the fare.
     pub available_balance: Money,
@@ -117,6 +127,9 @@ pub struct FareDecisionEvidence {
     eligibility: EligibilityClassification,
     discount_basis_points: DiscountBasisPoints,
     eligibility_discount: Money,
+    transfer_eligible: bool,
+    transfer_discount: Money,
+    fare_after_transfer: Money,
     final_fare: Money,
 }
 
@@ -161,6 +174,24 @@ impl FareDecisionEvidence {
     #[must_use]
     pub const fn eligibility_discount(self) -> Money {
         self.eligibility_discount
+    }
+
+    /// Reports whether the previous fare qualified for transfer.
+    #[must_use]
+    pub const fn transfer_eligible(self) -> bool {
+        self.transfer_eligible
+    }
+
+    /// Returns the transfer discount actually applied.
+    #[must_use]
+    pub const fn transfer_discount(self) -> Money {
+        self.transfer_discount
+    }
+
+    /// Returns the fare after transfer processing.
+    #[must_use]
+    pub const fn fare_after_transfer(self) -> Money {
+        self.fare_after_transfer
     }
 
     /// Returns the final fare presented to the balance check.
@@ -212,7 +243,7 @@ impl FareEvaluation {
     }
 }
 
-/// Evaluates base fare, zone surcharge, eligibility discount, and balance.
+/// Evaluates base fare, zone surcharge, eligibility, transfer, and balance.
 ///
 /// Rule order:
 ///
@@ -220,7 +251,8 @@ impl FareEvaluation {
 /// 2. Add the base fare.
 /// 3. Add one surcharge for each zone beyond the origin zone.
 /// 4. Apply the eligibility discount.
-/// 5. Compare the resulting fare with the available balance.
+/// 5. Apply an eligible transfer discount.
+/// 6. Compare the resulting fare with the available balance.
 ///
 /// Percentage discounts round down to the nearest minor unit.
 pub fn evaluate_fare(
@@ -247,11 +279,20 @@ pub fn evaluate_fare(
 
     let eligibility_discount = calculate_percentage(fare_before_discount, discount_basis_points)?;
 
-    let final_fare = fare_before_discount
+    let fare_after_eligibility = fare_before_discount
         .checked_subtract(eligibility_discount)
         .map_err(|_| FareEvaluationError::ArithmeticOverflow {
             stage: FareCalculationStage::DiscountedFare,
         })?;
+
+    let transfer_application = apply_transfer(
+        policy,
+        input.event_time,
+        input.transfer_history,
+        fare_after_eligibility,
+    )?;
+
+    let final_fare = transfer_application.fare_after_transfer();
 
     let balance_comparison = input
         .available_balance
@@ -261,13 +302,19 @@ pub fn evaluate_fare(
             actual: input.available_balance.currency(),
         })?;
 
+    let approval_reason = if transfer_application.discount_applied().minor_units() > 0 {
+        FareApprovalReason::Transfer
+    } else {
+        FareApprovalReason::StandardFare
+    };
+
     let outcome = match balance_comparison {
         Ordering::Less => FareEvaluationOutcome::Rejected {
             reason: FareRejectionReason::InsufficientStoredValue,
         },
         Ordering::Equal | Ordering::Greater => FareEvaluationOutcome::Approved {
             charged_amount: final_fare,
-            reason: FareApprovalReason::StandardFare,
+            reason: approval_reason,
         },
     };
 
@@ -279,6 +326,9 @@ pub fn evaluate_fare(
         eligibility: input.eligibility,
         discount_basis_points,
         eligibility_discount,
+        transfer_eligible: transfer_application.eligible(),
+        transfer_discount: transfer_application.discount_applied(),
+        fare_after_transfer: transfer_application.fare_after_transfer(),
         final_fare,
     };
 
@@ -349,7 +399,7 @@ mod tests {
 
     use crate::{
         DiscountBasisPoints, EligibilityDiscounts, FarePolicy, FarePolicyDefinition,
-        TransferWindow, ZoneId,
+        TransferHistory, TransferWindow, ZoneId,
     };
 
     use super::{FareEvaluationError, FareEvaluationInput, FareEvaluationOutcome, evaluate_fare};
@@ -431,6 +481,7 @@ mod tests {
             origin_zone: zone(origin_zone),
             destination_zone: zone(destination_zone),
             eligibility,
+            transfer_history: TransferHistory::none(),
             available_balance: balance,
         }
     }
@@ -635,6 +686,84 @@ mod tests {
             result,
             Err(FareEvaluationError::NegativeAvailableBalance { .. })
         ));
+    }
+
+    #[test]
+    fn eligible_transfer_is_applied_after_eligibility() {
+        let policy = policy(250, 75, 5_000);
+
+        let Ok(previous_event_time) = EventTime::from_unix_milliseconds(1_699_994_600_000) else {
+            panic!("previous event time must be valid");
+        };
+
+        let mut fare_input = input(
+            Money::from_minor_units(1_000, Currency::Usd),
+            1,
+            1,
+            EligibilityClassification::Standard,
+        );
+
+        fare_input.transfer_history = TransferHistory::from_previous_paid_fare(previous_event_time);
+
+        let result = evaluate_fare(policy, fare_input);
+
+        let Ok(evaluation) = result else {
+            panic!("eligible transfer must evaluate");
+        };
+
+        assert_eq!(
+            evaluation.outcome(),
+            FareEvaluationOutcome::Approved {
+                charged_amount: Money::zero(Currency::Usd),
+                reason: FareApprovalReason::Transfer,
+            }
+        );
+
+        assert!(evaluation.evidence().transfer_eligible());
+
+        assert_eq!(
+            evaluation.evidence().transfer_discount(),
+            Money::from_minor_units(250, Currency::Usd)
+        );
+    }
+
+    #[test]
+    fn expired_transfer_uses_standard_fare() {
+        let policy = policy(250, 75, 5_000);
+
+        let Ok(previous_event_time) = EventTime::from_unix_milliseconds(1_699_994_599_999) else {
+            panic!("previous event time must be valid");
+        };
+
+        let mut fare_input = input(
+            Money::from_minor_units(1_000, Currency::Usd),
+            1,
+            1,
+            EligibilityClassification::Standard,
+        );
+
+        fare_input.transfer_history = TransferHistory::from_previous_paid_fare(previous_event_time);
+
+        let result = evaluate_fare(policy, fare_input);
+
+        let Ok(evaluation) = result else {
+            panic!("expired transfer must evaluate");
+        };
+
+        assert_eq!(
+            evaluation.outcome(),
+            FareEvaluationOutcome::Approved {
+                charged_amount: Money::from_minor_units(250, Currency::Usd),
+                reason: FareApprovalReason::StandardFare,
+            }
+        );
+
+        assert!(!evaluation.evidence().transfer_eligible());
+
+        assert_eq!(
+            evaluation.evidence().transfer_discount(),
+            Money::zero(Currency::Usd)
+        );
     }
 
     #[test]
