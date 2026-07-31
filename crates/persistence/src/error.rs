@@ -51,6 +51,13 @@ pub enum PersistenceError {
         field: &'static str,
     },
 
+    /// An optimistic-concurrency or creation condition was not satisfied.
+    #[error("PostgreSQL write condition failed for `{entity}`")]
+    WriteConditionFailed {
+        /// Stable entity category safe for logs.
+        entity: &'static str,
+    },
+
     /// SQLx failed during a named database operation.
     #[error("PostgreSQL operation `{operation}` failed")]
     Database {
