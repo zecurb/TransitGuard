@@ -5,12 +5,17 @@
 //! configuration, and concrete infrastructure.
 
 pub mod account;
+pub mod credential;
 pub mod identifier;
 pub mod money;
 
 pub use account::{
     EligibilityClassification, StoredValueBalance, StoredValueError, TransitAccount,
     TransitAccountError, TransitAccountStatus,
+};
+
+pub use credential::{
+    FareCredential, FareCredentialError, FareCredentialKind, FareCredentialStatus, RevocationReason,
 };
 
 pub use identifier::{
