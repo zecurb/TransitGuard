@@ -24,6 +24,7 @@ pub use ports::{
 pub use unit_of_work::{ApplicationTransaction, TransactionManager};
 
 pub use use_cases::{
+    ActivateFareCredentialCommand, ActivateFareCredentialService, ActivatedFareCredential,
     IssueFareCredentialCommand, IssueFareCredentialService, IssuedFareCredential,
     RevokeFareCredentialCommand, RevokeFareCredentialService, RevokedFareCredential,
 };

@@ -1,7 +1,12 @@
 //! TransitGuard application use cases.
 
+mod activate_fare_credential;
 mod issue_fare_credential;
 mod revoke_fare_credential;
+
+pub use activate_fare_credential::{
+    ActivateFareCredentialCommand, ActivateFareCredentialService, ActivatedFareCredential,
+};
 
 pub use issue_fare_credential::{
     IssueFareCredentialCommand, IssueFareCredentialService, IssuedFareCredential,
