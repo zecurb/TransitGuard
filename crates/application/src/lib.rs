@@ -27,6 +27,7 @@ pub use use_cases::{
     ActivateFareCredentialCommand, ActivateFareCredentialService, ActivatedFareCredential,
     IssueFareCredentialCommand, IssueFareCredentialService, IssuedFareCredential,
     RevokeFareCredentialCommand, RevokeFareCredentialService, RevokedFareCredential,
+    SuspendFareCredentialCommand, SuspendFareCredentialService, SuspendedFareCredential,
 };
 
 pub use versioning::{SaveCondition, VersionedAggregate};
