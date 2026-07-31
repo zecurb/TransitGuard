@@ -193,6 +193,10 @@ version = "0.1.0"
 [[package]]
 name = "transitguard-application"
 version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "transitguard-domain",
+]
 
 [[package]]
 name = "transitguard-config"
