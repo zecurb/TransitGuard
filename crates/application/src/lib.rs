@@ -8,6 +8,7 @@ pub mod clock;
 pub mod error;
 pub mod ports;
 pub mod unit_of_work;
+pub mod use_cases;
 
 pub use clock::Clock;
 
@@ -20,3 +21,5 @@ pub use ports::{
 };
 
 pub use unit_of_work::{ApplicationTransaction, TransactionManager};
+
+pub use use_cases::{IssueFareCredentialCommand, IssueFareCredentialService, IssuedFareCredential};

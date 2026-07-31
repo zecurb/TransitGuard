@@ -45,7 +45,7 @@ mod tests {
 
         let result = clock.now();
 
-        assert_eq!(result, Ok(expected));
+        assert!(matches!(result, Ok(actual) if actual == expected));
     }
 
     #[test]
