@@ -1,11 +1,13 @@
+use super::support::rollback_with;
+
 use transitguard_domain::{
     AggregateVersion, DomainEvent, DomainEventPayload, FareCredential, FareCredentialId,
     FareCredentialKind, FareCredentialStatus,
 };
 
 use crate::{
-    ApplicationError, ApplicationTransaction, Clock, DomainEventIdGenerator,
-    FareCredentialIdGenerator, SaveCondition, TransactionManager,
+    ApplicationError, Clock, DomainEventIdGenerator, FareCredentialIdGenerator, SaveCondition,
+    TransactionManager,
 };
 
 /// Input for replacing a project-owned fare credential.
@@ -318,17 +320,6 @@ impl<'a> ReplaceFareCredentialService<'a> {
             replacement_status: replacement.status(),
             changed: true,
         })
-    }
-}
-
-async fn rollback_with<T>(
-    transaction: Box<dyn ApplicationTransaction>,
-    original_error: ApplicationError,
-) -> Result<T, ApplicationError> {
-    match transaction.rollback().await {
-        Ok(()) => Err(original_error),
-
-        Err(rollback_error) => Err(ApplicationError::from(rollback_error)),
     }
 }
 
@@ -1288,8 +1279,7 @@ mod tests {
             Some(credential)
                 if credential.status()
                     == FareCredentialStatus::Active
-                    && credential.replacement_id()
-                        == None
+                    && credential.replacement_id().is_none()
         ));
 
         assert_eq!(state.versions.get(&original_id), Some(&stored_version));
@@ -1339,8 +1329,7 @@ mod tests {
             Some(credential)
                 if credential.status()
                     == FareCredentialStatus::Active
-                    && credential.replacement_id()
-                        == None
+                    && credential.replacement_id().is_none()
         ));
 
         assert!(!state.credentials.contains_key(&replacement_id));

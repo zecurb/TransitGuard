@@ -1,11 +1,13 @@
+use super::support::rollback_with;
+
 use transitguard_domain::{
     AggregateVersion, DomainEvent, DomainEventPayload, FareCredential, FareCredentialId,
     FareCredentialKind, FareCredentialStatus, TransitAccountId,
 };
 
 use crate::{
-    ApplicationError, ApplicationTransaction, Clock, DomainEventIdGenerator,
-    FareCredentialIdGenerator, SaveCondition, TransactionManager,
+    ApplicationError, Clock, DomainEventIdGenerator, FareCredentialIdGenerator, SaveCondition,
+    TransactionManager,
 };
 
 /// Input for issuing a project-owned fare credential.
@@ -178,16 +180,6 @@ impl<'a> IssueFareCredentialService<'a> {
             kind: command.kind,
             status: credential.status(),
         })
-    }
-}
-
-async fn rollback_with<T>(
-    transaction: Box<dyn ApplicationTransaction>,
-    original_error: ApplicationError,
-) -> Result<T, ApplicationError> {
-    match transaction.rollback().await {
-        Ok(()) => Err(original_error),
-        Err(rollback_error) => Err(ApplicationError::from(rollback_error)),
     }
 }
 
