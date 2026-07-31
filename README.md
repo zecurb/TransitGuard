@@ -7,7 +7,7 @@ The project models fictional transit cards, reader equipment, protected
 credentials, offline fare transactions, reconciliation, administrative
 services, and operational monitoring.
 
-> Current status: Phase 0 — Foundation
+> Current status: Phase 3 — PostgreSQL persistence
 
 ## Planned capabilities
 
@@ -27,6 +27,10 @@ services, and operational monitoring.
 TransitGuard does not interact with real transit systems, real transit cards,
 real fare equipment, or real transit-authority credentials. All protocols,
 cards, readers, keys, and infrastructure are fictional and project-owned.
+
+## Development documentation
+
+- [Local PostgreSQL persistence validation](docs/development/postgresql-validation.md)
 
 ## License
 
