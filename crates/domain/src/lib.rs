@@ -1,14 +1,46 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! TransitGuard core domain model.
+//!
+//! This crate contains business concepts and invariants that remain
+//! independent from transport protocols, databases, application
+//! configuration, and concrete infrastructure.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod account;
+pub mod credential;
+pub mod equipment;
+pub mod event;
+pub mod identifier;
+pub mod money;
+pub mod transaction;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use account::{
+    EligibilityClassification, StoredValueBalance, StoredValueError, TransitAccount,
+    TransitAccountError, TransitAccountStatus,
+};
+
+pub use credential::{
+    FareCredential, FareCredentialError, FareCredentialKind, FareCredentialStatus, RevocationReason,
+};
+
+pub use equipment::{
+    EquipmentIdentity, ReaderDisablementReason, ReaderEquipment, ReaderEquipmentError,
+    ReaderEquipmentStatus, ReaderRevocationReason,
+};
+
+pub use identifier::{
+    DomainEventId, EquipmentKeyId, FareCredentialId, FareTransactionId, IdentifierError, JourneyId,
+    ReaderId, RiderId, SynchronizationBatchId, TransitAccountId, TransitProductId,
+    TransitProductInstanceId,
+};
+
+pub use money::{Currency, Money, MoneyError, MoneyOperation};
+
+pub use transaction::{
+    EventTime, FareApprovalReason, FareDecision, FareDecisionError, FarePolicyVersion,
+    FareProcessingMode, FareRejectionReason, FareTransaction, FareTransactionError,
+    FareTransactionStatus, FareTransactionValueError, LocalSequenceNumber,
+};
+
+pub use event::{
+    AggregateVersion, DomainAggregateId, DomainEvent, DomainEventError, DomainEventPayload,
+    DomainEventTime, DomainEventValueError, StoredValueChangeReason,
+};
