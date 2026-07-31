@@ -1,14 +1,12 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Deterministic TransitGuard fare-policy evaluation.
+//!
+//! This crate contains database-independent and network-independent fare
+//! policy models and evaluation rules shared by backend applications and the
+//! reader simulator.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod policy;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use policy::{
+    DiscountBasisPoints, EligibilityDiscounts, FarePolicy, FarePolicyDefinition, FarePolicyError,
+    FarePolicyValueError, TransferWindow, ZoneId,
+};
