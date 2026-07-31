@@ -2,6 +2,8 @@ use std::error::Error as StandardError;
 
 use thiserror::Error;
 
+use transitguard_domain::FareCredentialError;
+
 /// A thread-safe infrastructure error preserved as an application source.
 pub type BoxError = Box<dyn StandardError + Send + Sync + 'static>;
 
@@ -97,6 +99,10 @@ pub enum ApplicationError {
         /// Sanitized conflict reason.
         reason: &'static str,
     },
+
+    /// A fare-credential business rule rejected the operation.
+    #[error(transparent)]
+    FareCredential(#[from] FareCredentialError),
 
     /// An infrastructure repository operation failed.
     #[error(transparent)]

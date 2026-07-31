@@ -23,6 +23,9 @@ pub use ports::{
 
 pub use unit_of_work::{ApplicationTransaction, TransactionManager};
 
-pub use use_cases::{IssueFareCredentialCommand, IssueFareCredentialService, IssuedFareCredential};
+pub use use_cases::{
+    IssueFareCredentialCommand, IssueFareCredentialService, IssuedFareCredential,
+    RevokeFareCredentialCommand, RevokeFareCredentialService, RevokedFareCredential,
+};
 
 pub use versioning::{SaveCondition, VersionedAggregate};
