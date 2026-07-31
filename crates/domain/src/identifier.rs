@@ -128,6 +128,7 @@ define_identifier!(TransitAccountId, "transit account identifier");
 define_identifier!(RiderId, "rider identifier");
 define_identifier!(FareCredentialId, "fare credential identifier");
 define_identifier!(ReaderId, "reader identifier");
+define_identifier!(EquipmentKeyId, "equipment key identifier");
 define_identifier!(FareTransactionId, "fare transaction identifier");
 define_identifier!(JourneyId, "journey identifier");
 define_identifier!(TransitProductId, "transit product identifier");
