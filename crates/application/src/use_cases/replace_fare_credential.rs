@@ -141,6 +141,39 @@ impl<'a> ReplaceFareCredentialService<'a> {
                 }
             };
 
+            let original_account_id = loaded.aggregate().transit_account_id();
+
+            let recorded_replacement = match transaction
+                .find_fare_credential(replacement_credential_id)
+                .await
+            {
+                Ok(Some(credential)) => credential,
+
+                Ok(None) => {
+                    let error = ApplicationError::conflict(
+                        "replace fare credential",
+                        "recorded replacement credential is missing",
+                    );
+
+                    return rollback_with(transaction, error).await;
+                }
+
+                Err(error) => {
+                    return rollback_with(transaction, ApplicationError::from(error)).await;
+                }
+            };
+
+            if recorded_replacement.aggregate().transit_account_id() != original_account_id {
+                let error = ApplicationError::conflict(
+                    "replace fare credential",
+                    "recorded replacement belongs to another account",
+                );
+
+                return rollback_with(transaction, error).await;
+            }
+
+            let replacement_status = recorded_replacement.aggregate().status();
+
             transaction.commit().await?;
 
             return Ok(ReplacedFareCredential {
@@ -148,7 +181,7 @@ impl<'a> ReplaceFareCredentialService<'a> {
                 replacement_credential_id,
                 previous_status,
                 current_status: FareCredentialStatus::Replaced,
-                replacement_status: FareCredentialStatus::Pending,
+                replacement_status,
                 changed: false,
             });
         }
@@ -920,21 +953,31 @@ mod tests {
     }
 
     #[test]
-    fn repeated_replacement_is_idempotent() {
+    fn repeated_replacement_returns_authoritative_successor_status() {
         let account_id = TransitAccountId::generate();
-
         let original_id = FareCredentialId::generate();
-
         let recorded_replacement_id = FareCredentialId::generate();
-
         let generated_replacement_id = FareCredentialId::generate();
-
         let stored_version = version(7);
+        let replacement_version = version(2);
 
         let state = state_with_credential(
             replaced_credential(original_id, account_id, recorded_replacement_id),
             stored_version,
         );
+
+        {
+            let mut state = lock_state(&state);
+
+            state.credentials.insert(
+                recorded_replacement_id,
+                active_credential(recorded_replacement_id, account_id),
+            );
+
+            state
+                .versions
+                .insert(recorded_replacement_id, replacement_version);
+        }
 
         let result = execute(
             Arc::clone(&state),
@@ -956,6 +999,8 @@ mod tests {
                         == FareCredentialStatus::Replaced
                     && replaced.current_status()
                         == FareCredentialStatus::Replaced
+                    && replaced.replacement_status()
+                        == FareCredentialStatus::Active
                     && !replaced.changed()
         ));
 
@@ -968,7 +1013,52 @@ mod tests {
 
         assert_eq!(state.versions.get(&original_id), Some(&stored_version));
 
+        assert_eq!(
+            state.versions.get(&recorded_replacement_id),
+            Some(&replacement_version)
+        );
+
         assert!(!state.credentials.contains_key(&generated_replacement_id));
+    }
+
+    #[test]
+    fn missing_recorded_replacement_rolls_back() {
+        let account_id = TransitAccountId::generate();
+        let original_id = FareCredentialId::generate();
+        let recorded_replacement_id = FareCredentialId::generate();
+        let stored_version = version(5);
+
+        let state = state_with_credential(
+            replaced_credential(original_id, account_id, recorded_replacement_id),
+            stored_version,
+        );
+
+        let result = execute(
+            Arc::clone(&state),
+            ReplaceFareCredentialCommand {
+                credential_id: original_id,
+                replacement_kind: FareCredentialKind::Card,
+            },
+            FareCredentialId::generate(),
+            Vec::new(),
+        );
+
+        assert!(matches!(
+            result,
+            Err(ApplicationError::Conflict {
+                operation: "replace fare credential",
+                reason: "recorded replacement credential is missing",
+            })
+        ));
+
+        let state = lock_state(&state);
+
+        assert_eq!(state.commits, 0);
+        assert_eq!(state.rollbacks, 1);
+        assert!(state.observed_conditions.is_empty());
+        assert!(state.committed_events.is_empty());
+
+        assert_eq!(state.versions.get(&original_id), Some(&stored_version));
     }
 
     #[test]
