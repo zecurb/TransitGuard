@@ -11,7 +11,7 @@ const ENTITY: &str = "transit account";
 const FIND_OPERATION: &str = "find by identifier";
 const SAVE_OPERATION: &str = "save";
 
-const FIND_ACCOUNT_SQL: &str = r#"
+pub(crate) const FIND_ACCOUNT_SQL: &str = r#"
 SELECT
     id,
     rider_id,
@@ -24,7 +24,7 @@ FROM transit_accounts
 WHERE id = $1
 "#;
 
-const INSERT_ACCOUNT_SQL: &str = r#"
+pub(crate) const INSERT_ACCOUNT_SQL: &str = r#"
 INSERT INTO transit_accounts (
     id,
     rider_id,
@@ -45,7 +45,7 @@ VALUES (
 )
 "#;
 
-const UPDATE_ACCOUNT_SQL: &str = r#"
+pub(crate) const UPDATE_ACCOUNT_SQL: &str = r#"
 UPDATE transit_accounts
 SET
     rider_id = $2,
@@ -188,18 +188,18 @@ impl TransitAccountRepository for PostgresTransitAccountRepository {
 }
 
 #[derive(Debug, FromRow)]
-struct TransitAccountRow {
-    id: Uuid,
-    rider_id: Uuid,
-    status: String,
-    eligibility: String,
-    stored_value_minor_units: i64,
-    stored_value_currency: String,
-    aggregate_version: i64,
+pub(crate) struct TransitAccountRow {
+    pub(crate) id: Uuid,
+    pub(crate) rider_id: Uuid,
+    pub(crate) status: String,
+    pub(crate) eligibility: String,
+    pub(crate) stored_value_minor_units: i64,
+    pub(crate) stored_value_currency: String,
+    pub(crate) aggregate_version: i64,
 }
 
 impl TransitAccountRow {
-    fn from_domain(account: &TransitAccount, aggregate_version: i64) -> Self {
+    pub(crate) fn from_domain(account: &TransitAccount, aggregate_version: i64) -> Self {
         let stored_value = account.stored_value().amount();
 
         Self {
@@ -222,7 +222,9 @@ impl TransitAccountRow {
         }
     }
 
-    fn into_versioned(self) -> Result<VersionedAggregate<TransitAccount>, PersistenceError> {
+    pub(crate) fn into_versioned(
+        self,
+    ) -> Result<VersionedAggregate<TransitAccount>, PersistenceError> {
         let account_id =
             TransitAccountId::try_from(self.id).map_err(|_| invalid("transit_accounts.id"))?;
 

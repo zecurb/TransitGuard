@@ -9,7 +9,7 @@ use crate::{PersistenceError, PostgresValueCodec};
 const ENTITY: &str = "domain event";
 const APPEND_OPERATION: &str = "append";
 
-const INSERT_EVENT_SQL: &str = r#"
+pub(crate) const INSERT_EVENT_SQL: &str = r#"
 INSERT INTO domain_events (
     id,
     aggregate_kind,
@@ -79,18 +79,18 @@ impl DomainEventRepository for PostgresDomainEventRepository {
 }
 
 #[derive(Debug)]
-struct DomainEventRecord {
-    id: Uuid,
-    aggregate_kind: &'static str,
-    aggregate_id: Uuid,
-    aggregate_version: i64,
-    event_name: &'static str,
-    occurred_at_unix_ms: i64,
-    payload: Value,
+pub(crate) struct DomainEventRecord {
+    pub(crate) id: Uuid,
+    pub(crate) aggregate_kind: &'static str,
+    pub(crate) aggregate_id: Uuid,
+    pub(crate) aggregate_version: i64,
+    pub(crate) event_name: &'static str,
+    pub(crate) occurred_at_unix_ms: i64,
+    pub(crate) payload: Value,
 }
 
 impl DomainEventRecord {
-    fn from_domain(event: &DomainEvent) -> Result<Self, PersistenceError> {
+    pub(crate) fn from_domain(event: &DomainEvent) -> Result<Self, PersistenceError> {
         let event = *event;
 
         let (aggregate_kind, aggregate_id) =

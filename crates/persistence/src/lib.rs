@@ -11,6 +11,7 @@ mod config;
 mod error;
 mod postgres;
 mod repositories;
+mod transaction;
 
 pub use codec::PostgresValueCodec;
 pub use config::PostgresConfig;
@@ -22,3 +23,5 @@ pub use repositories::{
     PostgresDomainEventRepository, PostgresFareCredentialRepository,
     PostgresReaderEquipmentRepository, PostgresTransitAccountRepository,
 };
+
+pub use transaction::PostgresTransactionManager;

@@ -14,7 +14,7 @@ const ENTITY: &str = "reader equipment";
 const FIND_OPERATION: &str = "find by identifier";
 const SAVE_OPERATION: &str = "save";
 
-const FIND_READER_SQL: &str = r#"
+pub(crate) const FIND_READER_SQL: &str = r#"
 SELECT
     id,
     equipment_key_id,
@@ -26,7 +26,7 @@ FROM reader_equipment
 WHERE id = $1
 "#;
 
-const INSERT_READER_SQL: &str = r#"
+pub(crate) const INSERT_READER_SQL: &str = r#"
 INSERT INTO reader_equipment (
     id,
     equipment_key_id,
@@ -45,7 +45,7 @@ VALUES (
 )
 "#;
 
-const UPDATE_READER_SQL: &str = r#"
+pub(crate) const UPDATE_READER_SQL: &str = r#"
 UPDATE reader_equipment
 SET
     equipment_key_id = $2,
@@ -184,17 +184,17 @@ impl ReaderEquipmentRepository for PostgresReaderEquipmentRepository {
 }
 
 #[derive(Debug, FromRow)]
-struct ReaderEquipmentRow {
-    id: Uuid,
-    equipment_key_id: Uuid,
-    status: String,
-    disablement_reason: Option<String>,
-    revocation_reason: Option<String>,
-    aggregate_version: i64,
+pub(crate) struct ReaderEquipmentRow {
+    pub(crate) id: Uuid,
+    pub(crate) equipment_key_id: Uuid,
+    pub(crate) status: String,
+    pub(crate) disablement_reason: Option<String>,
+    pub(crate) revocation_reason: Option<String>,
+    pub(crate) aggregate_version: i64,
 }
 
 impl ReaderEquipmentRow {
-    fn from_domain(reader: &ReaderEquipment, aggregate_version: i64) -> Self {
+    pub(crate) fn from_domain(reader: &ReaderEquipment, aggregate_version: i64) -> Self {
         Self {
             id: reader.id().into_uuid(),
 
@@ -216,7 +216,9 @@ impl ReaderEquipmentRow {
         }
     }
 
-    fn into_versioned(self) -> Result<VersionedAggregate<ReaderEquipment>, PersistenceError> {
+    pub(crate) fn into_versioned(
+        self,
+    ) -> Result<VersionedAggregate<ReaderEquipment>, PersistenceError> {
         let reader_id = ReaderId::try_from(self.id).map_err(|_| invalid("reader_equipment.id"))?;
 
         let key_id = EquipmentKeyId::try_from(self.equipment_key_id)

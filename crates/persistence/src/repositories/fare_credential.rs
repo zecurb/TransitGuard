@@ -14,7 +14,7 @@ const ENTITY: &str = "fare credential";
 const FIND_OPERATION: &str = "find by identifier";
 const SAVE_OPERATION: &str = "save";
 
-const FIND_CREDENTIAL_SQL: &str = r#"
+pub(crate) const FIND_CREDENTIAL_SQL: &str = r#"
 SELECT
     id,
     transit_account_id,
@@ -27,7 +27,7 @@ FROM fare_credentials
 WHERE id = $1
 "#;
 
-const INSERT_CREDENTIAL_SQL: &str = r#"
+pub(crate) const INSERT_CREDENTIAL_SQL: &str = r#"
 INSERT INTO fare_credentials (
     id,
     transit_account_id,
@@ -48,7 +48,7 @@ VALUES (
 )
 "#;
 
-const UPDATE_CREDENTIAL_SQL: &str = r#"
+pub(crate) const UPDATE_CREDENTIAL_SQL: &str = r#"
 UPDATE fare_credentials
 SET
     transit_account_id = $2,
@@ -190,18 +190,18 @@ impl FareCredentialRepository for PostgresFareCredentialRepository {
 }
 
 #[derive(Debug, FromRow)]
-struct FareCredentialRow {
-    id: Uuid,
-    transit_account_id: Uuid,
-    kind: String,
-    status: String,
-    revocation_reason: Option<String>,
-    replacement_id: Option<Uuid>,
-    aggregate_version: i64,
+pub(crate) struct FareCredentialRow {
+    pub(crate) id: Uuid,
+    pub(crate) transit_account_id: Uuid,
+    pub(crate) kind: String,
+    pub(crate) status: String,
+    pub(crate) revocation_reason: Option<String>,
+    pub(crate) replacement_id: Option<Uuid>,
+    pub(crate) aggregate_version: i64,
 }
 
 impl FareCredentialRow {
-    fn from_domain(credential: &FareCredential, aggregate_version: i64) -> Self {
+    pub(crate) fn from_domain(credential: &FareCredential, aggregate_version: i64) -> Self {
         Self {
             id: credential.id().into_uuid(),
             transit_account_id: credential.transit_account_id().into_uuid(),
@@ -225,7 +225,9 @@ impl FareCredentialRow {
         }
     }
 
-    fn into_versioned(self) -> Result<VersionedAggregate<FareCredential>, PersistenceError> {
+    pub(crate) fn into_versioned(
+        self,
+    ) -> Result<VersionedAggregate<FareCredential>, PersistenceError> {
         let credential_id =
             FareCredentialId::try_from(self.id).map_err(|_| invalid("fare_credentials.id"))?;
 

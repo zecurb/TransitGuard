@@ -1,7 +1,7 @@
-mod domain_event;
-mod fare_credential;
-mod reader_equipment;
-mod transit_account;
+pub(crate) mod domain_event;
+pub(crate) mod fare_credential;
+pub(crate) mod reader_equipment;
+pub(crate) mod transit_account;
 
 pub use domain_event::PostgresDomainEventRepository;
 pub use fare_credential::PostgresFareCredentialRepository;
