@@ -1,4 +1,4 @@
-use core::fmt;
+use core::{cmp::Ordering, fmt};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -74,8 +74,8 @@ impl fmt::Display for MoneyOperation {
 /// Errors produced by monetary operations.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 pub enum MoneyError {
-    /// An operation attempted to combine different currencies.
-    #[error("currency mismatch: cannot combine {left} with {right}")]
+    /// An operation attempted to use different currencies together.
+    #[error("currency mismatch: {left} and {right} cannot be used together")]
     CurrencyMismatch {
         /// Currency of the left operand.
         left: Currency,
@@ -96,7 +96,11 @@ pub enum MoneyError {
 ///
 /// TransitGuard never uses floating-point arithmetic for balances, fares,
 /// adjustments, or transaction amounts.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+///
+/// `Money` intentionally does not implement `Ord` or `PartialOrd` because
+/// values in different currencies do not have a meaningful natural order.
+/// Use [`Money::checked_cmp`] for currency-safe comparisons.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Money {
     minor_units: i64,
     currency: Currency,
@@ -148,6 +152,16 @@ impl Money {
     #[must_use]
     pub const fn is_negative(self) -> bool {
         self.minor_units < 0
+    }
+
+    /// Compares two monetary values after validating their currencies.
+    ///
+    /// Cross-currency values cannot be ordered without an explicit exchange
+    /// rate, so those comparisons return [`MoneyError::CurrencyMismatch`].
+    pub fn checked_cmp(self, other: Self) -> Result<Ordering, MoneyError> {
+        self.ensure_same_currency(other)?;
+
+        Ok(self.minor_units.cmp(&other.minor_units))
     }
 
     /// Adds another monetary value after validating its currency.
@@ -224,6 +238,8 @@ impl fmt::Display for Money {
 
 #[cfg(test)]
 mod tests {
+    use core::cmp::Ordering;
+
     use super::{Currency, Money, MoneyError, MoneyOperation};
 
     #[test]
@@ -259,6 +275,38 @@ mod tests {
         assert!(money.is_negative());
         assert!(!money.is_positive());
         assert!(!money.is_zero());
+    }
+
+    #[test]
+    fn same_currency_values_can_be_compared() {
+        let lower = Money::from_minor_units(1_000, Currency::Usd);
+
+        let equal = Money::from_minor_units(1_000, Currency::Usd);
+
+        let higher = Money::from_minor_units(1_500, Currency::Usd);
+
+        assert_eq!(lower.checked_cmp(equal), Ok(Ordering::Equal));
+
+        assert_eq!(lower.checked_cmp(higher), Ok(Ordering::Less));
+
+        assert_eq!(higher.checked_cmp(lower), Ok(Ordering::Greater));
+    }
+
+    #[test]
+    fn different_currencies_cannot_be_compared() {
+        let dollars = Money::from_minor_units(1_000, Currency::Usd);
+
+        let euros = Money::from_minor_units(1_000, Currency::Eur);
+
+        let result = dollars.checked_cmp(euros);
+
+        assert!(matches!(
+            result,
+            Err(MoneyError::CurrencyMismatch {
+                left: Currency::Usd,
+                right: Currency::Eur
+            })
+        ));
     }
 
     #[test]
