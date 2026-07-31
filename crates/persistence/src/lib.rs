@@ -6,10 +6,12 @@
 //!
 //! SQLx and PostgreSQL types must not leak into the domain crate.
 
+mod codec;
 mod config;
 mod error;
 mod postgres;
 
+pub use codec::PostgresValueCodec;
 pub use config::PostgresConfig;
 pub use error::PersistenceError;
 

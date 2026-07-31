@@ -37,6 +37,20 @@ pub enum PersistenceError {
     )]
     ZeroAcquireTimeout,
 
+    /// A stored database value could not be reconstructed safely.
+    #[error("PostgreSQL record contains an invalid value for `{field}`")]
+    InvalidStoredValue {
+        /// Stable schema field name.
+        field: &'static str,
+    },
+
+    /// A numeric database value exceeded the domain representation.
+    #[error("PostgreSQL numeric value for `{field}` is outside the supported range")]
+    NumericValueOutOfRange {
+        /// Stable schema field name.
+        field: &'static str,
+    },
+
     /// SQLx failed during a named database operation.
     #[error("PostgreSQL operation `{operation}` failed")]
     Database {
