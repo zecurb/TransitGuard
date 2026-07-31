@@ -122,7 +122,9 @@ impl PostgresFareCredentialRepository {
             .bind(row.aggregate_version)
             .execute(&self.pool)
             .await
-            .map_err(|source| PersistenceError::database("insert fare credential", source))?;
+            .map_err(|source| {
+                PersistenceError::write("insert fare credential", "fare credential", source)
+            })?;
 
         Ok(())
     }
@@ -154,7 +156,9 @@ impl PostgresFareCredentialRepository {
             .bind(expected_version)
             .execute(&self.pool)
             .await
-            .map_err(|source| PersistenceError::database("update fare credential", source))?;
+            .map_err(|source| {
+                PersistenceError::write("update fare credential", "fare credential", source)
+            })?;
 
         if result.rows_affected() != 1 {
             return Err(PersistenceError::WriteConditionFailed { entity: ENTITY });

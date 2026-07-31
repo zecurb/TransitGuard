@@ -119,7 +119,9 @@ impl PostgresTransitAccountRepository {
             .bind(row.aggregate_version)
             .execute(&self.pool)
             .await
-            .map_err(|source| PersistenceError::database("insert transit account", source))?;
+            .map_err(|source| {
+                PersistenceError::write("insert transit account", "transit account", source)
+            })?;
 
         Ok(())
     }
@@ -152,7 +154,9 @@ impl PostgresTransitAccountRepository {
             .bind(expected_version)
             .execute(&self.pool)
             .await
-            .map_err(|source| PersistenceError::database("update transit account", source))?;
+            .map_err(|source| {
+                PersistenceError::write("update transit account", "transit account", source)
+            })?;
 
         if result.rows_affected() != 1 {
             return Err(PersistenceError::WriteConditionFailed { entity: ENTITY });

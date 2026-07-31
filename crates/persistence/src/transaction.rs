@@ -86,7 +86,11 @@ impl PostgresApplicationTransaction {
                     .execute(&mut *self.transaction)
                     .await
                     .map_err(|source| {
-                        PersistenceError::database("insert transit account in transaction", source)
+                        PersistenceError::write(
+                            "insert transit account in transaction",
+                            "transit account",
+                            source,
+                        )
                     })?;
 
                 Ok(())
@@ -110,7 +114,11 @@ impl PostgresApplicationTransaction {
                     .execute(&mut *self.transaction)
                     .await
                     .map_err(|source| {
-                        PersistenceError::database("update transit account in transaction", source)
+                        PersistenceError::write(
+                            "update transit account in transaction",
+                            "transit account",
+                            source,
+                        )
                     })?;
 
                 enforce_single_write(result.rows_affected(), ACCOUNT_ENTITY)
@@ -153,7 +161,11 @@ impl PostgresApplicationTransaction {
                     .execute(&mut *self.transaction)
                     .await
                     .map_err(|source| {
-                        PersistenceError::database("insert fare credential in transaction", source)
+                        PersistenceError::write(
+                            "insert fare credential in transaction",
+                            "fare credential",
+                            source,
+                        )
                     })?;
 
                 Ok(())
@@ -177,7 +189,11 @@ impl PostgresApplicationTransaction {
                     .execute(&mut *self.transaction)
                     .await
                     .map_err(|source| {
-                        PersistenceError::database("update fare credential in transaction", source)
+                        PersistenceError::write(
+                            "update fare credential in transaction",
+                            "fare credential",
+                            source,
+                        )
                     })?;
 
                 enforce_single_write(result.rows_affected(), CREDENTIAL_ENTITY)
@@ -219,7 +235,11 @@ impl PostgresApplicationTransaction {
                     .execute(&mut *self.transaction)
                     .await
                     .map_err(|source| {
-                        PersistenceError::database("insert reader equipment in transaction", source)
+                        PersistenceError::write(
+                            "insert reader equipment in transaction",
+                            "reader equipment",
+                            source,
+                        )
                     })?;
 
                 Ok(())
@@ -242,7 +262,11 @@ impl PostgresApplicationTransaction {
                     .execute(&mut *self.transaction)
                     .await
                     .map_err(|source| {
-                        PersistenceError::database("update reader equipment in transaction", source)
+                        PersistenceError::write(
+                            "update reader equipment in transaction",
+                            "reader equipment",
+                            source,
+                        )
                     })?;
 
                 enforce_single_write(result.rows_affected(), READER_ENTITY)
@@ -264,7 +288,11 @@ impl PostgresApplicationTransaction {
             .execute(&mut *self.transaction)
             .await
             .map_err(|source| {
-                PersistenceError::database("insert domain event in transaction", source)
+                PersistenceError::write(
+                    "insert domain event in transaction",
+                    "domain event",
+                    source,
+                )
             })?;
 
         Ok(())

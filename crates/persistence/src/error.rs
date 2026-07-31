@@ -1,3 +1,4 @@
+use sqlx::error::ErrorKind;
 use thiserror::Error;
 
 /// Stable failures exposed by the persistence boundary.
@@ -69,6 +70,20 @@ pub enum PersistenceError {
         source: serde_json::Error,
     },
 
+    /// A database constraint rejected an otherwise valid write.
+    #[error("PostgreSQL {kind} constraint rejected a write for `{entity}`")]
+    ConstraintViolation {
+        /// Stable entity category safe for logs.
+        entity: &'static str,
+
+        /// Sanitized constraint category.
+        kind: &'static str,
+
+        /// Original SQLx error retained as the source.
+        #[source]
+        source: sqlx::Error,
+    },
+
     /// SQLx failed during a named database operation.
     #[error("PostgreSQL operation `{operation}` failed")]
     Database {
@@ -92,6 +107,50 @@ pub enum PersistenceError {
 impl PersistenceError {
     pub(crate) fn serialization(operation: &'static str, source: serde_json::Error) -> Self {
         Self::Serialization { operation, source }
+    }
+
+    pub(crate) fn write(
+        operation: &'static str,
+        entity: &'static str,
+        source: sqlx::Error,
+    ) -> Self {
+        let error_kind = match &source {
+            sqlx::Error::Database(database_error) => database_error.kind(),
+
+            _ => {
+                return Self::database(operation, source);
+            }
+        };
+
+        match error_kind {
+            ErrorKind::UniqueViolation => Self::WriteConditionFailed { entity },
+
+            ErrorKind::ForeignKeyViolation => Self::ConstraintViolation {
+                entity,
+                kind: "foreign-key",
+                source,
+            },
+
+            ErrorKind::NotNullViolation => Self::ConstraintViolation {
+                entity,
+                kind: "not-null",
+                source,
+            },
+
+            ErrorKind::CheckViolation => Self::ConstraintViolation {
+                entity,
+                kind: "check",
+                source,
+            },
+
+            ErrorKind::ExclusionViolation => Self::ConstraintViolation {
+                entity,
+                kind: "exclusion",
+                source,
+            },
+
+            _ => Self::database(operation, source),
+        }
     }
 
     pub(crate) const fn database(operation: &'static str, source: sqlx::Error) -> Self {

@@ -62,7 +62,9 @@ impl PostgresDomainEventRepository {
             .bind(record.payload)
             .execute(&self.pool)
             .await
-            .map_err(|source| PersistenceError::database("insert domain event", source))?;
+            .map_err(|source| {
+                PersistenceError::write("insert domain event", "domain event", source)
+            })?;
 
         Ok(())
     }

@@ -117,7 +117,9 @@ impl PostgresReaderEquipmentRepository {
             .bind(row.aggregate_version)
             .execute(&self.pool)
             .await
-            .map_err(|source| PersistenceError::database("insert reader equipment", source))?;
+            .map_err(|source| {
+                PersistenceError::write("insert reader equipment", "reader equipment", source)
+            })?;
 
         Ok(())
     }
@@ -148,7 +150,9 @@ impl PostgresReaderEquipmentRepository {
             .bind(expected_version)
             .execute(&self.pool)
             .await
-            .map_err(|source| PersistenceError::database("update reader equipment", source))?;
+            .map_err(|source| {
+                PersistenceError::write("update reader equipment", "reader equipment", source)
+            })?;
 
         if result.rows_affected() != 1 {
             return Err(PersistenceError::WriteConditionFailed { entity: ENTITY });
