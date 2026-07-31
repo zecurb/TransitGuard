@@ -1,14 +1,24 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! TransitGuard application services and infrastructure ports.
+//!
+//! This crate coordinates use cases through domain objects and abstract
+//! infrastructure interfaces. It contains no HTTP handlers, SQL queries,
+//! database-row types, filesystem configuration, or concrete telemetry.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod error;
+pub mod ports;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use error::{
+    ApplicationError,
+    BoxError,
+    RepositoryError,
+};
+
+pub use ports::{
+    DomainEventIdGenerator,
+    DomainEventRepository,
+    FareCredentialIdGenerator,
+    FareCredentialRepository,
+    ReaderEquipmentRepository,
+    RepositoryFuture,
+    TransitAccountRepository,
+};
