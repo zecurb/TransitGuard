@@ -4,6 +4,7 @@ mod activate_fare_credential;
 mod issue_fare_credential;
 mod replace_fare_credential;
 mod revoke_fare_credential;
+mod support;
 mod suspend_fare_credential;
 
 pub use activate_fare_credential::{
