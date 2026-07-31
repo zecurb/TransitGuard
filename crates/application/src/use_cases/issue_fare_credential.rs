@@ -5,7 +5,7 @@ use transitguard_domain::{
 
 use crate::{
     ApplicationError, ApplicationTransaction, Clock, DomainEventIdGenerator,
-    FareCredentialIdGenerator, TransactionManager,
+    FareCredentialIdGenerator, SaveCondition, TransactionManager,
 };
 
 /// Input for issuing a project-owned fare credential.
@@ -109,7 +109,7 @@ impl<'a> IssueFareCredentialService<'a> {
             }
         };
 
-        if !account.is_active() {
+        if !account.aggregate().is_active() {
             let error = ApplicationError::conflict(
                 "issue fare credential",
                 "transit account is not active",
@@ -159,7 +159,10 @@ impl<'a> IssueFareCredentialService<'a> {
             }
         };
 
-        if let Err(error) = transaction.save_fare_credential(&credential).await {
+        if let Err(error) = transaction
+            .save_fare_credential(&credential, SaveCondition::MustNotExist)
+            .await
+        {
             return rollback_with(transaction, ApplicationError::from(error)).await;
         }
 
@@ -201,15 +204,16 @@ mod tests {
 
     use thiserror::Error;
     use transitguard_domain::{
-        Currency, DomainEvent, DomainEventId, DomainEventPayload, DomainEventTime,
-        EligibilityClassification, FareCredential, FareCredentialId, FareCredentialKind,
-        FareCredentialStatus, Money, ReaderEquipment, ReaderId, RiderId, TransitAccount,
-        TransitAccountId,
+        AggregateVersion, Currency, DomainEvent, DomainEventId, DomainEventPayload,
+        DomainEventTime, EligibilityClassification, FareCredential, FareCredentialId,
+        FareCredentialKind, FareCredentialStatus, Money, ReaderEquipment, ReaderId, RiderId,
+        TransitAccount, TransitAccountId,
     };
 
     use crate::{
         ApplicationError, ApplicationTransaction, Clock, DomainEventIdGenerator,
-        FareCredentialIdGenerator, RepositoryError, RepositoryFuture, TransactionManager,
+        FareCredentialIdGenerator, RepositoryError, RepositoryFuture, SaveCondition,
+        TransactionManager, VersionedAggregate,
     };
 
     use super::{IssueFareCredentialCommand, IssueFareCredentialService};
@@ -244,13 +248,14 @@ mod tests {
         fn find_transit_account(
             &mut self,
             account_id: TransitAccountId,
-        ) -> RepositoryFuture<'_, Option<TransitAccount>> {
+        ) -> RepositoryFuture<'_, Option<VersionedAggregate<TransitAccount>>> {
             let result = match self.state.lock() {
                 Ok(state) => Ok(state
                     .account
                     .as_ref()
                     .filter(|account| account.id() == account_id)
-                    .cloned()),
+                    .cloned()
+                    .map(|account| VersionedAggregate::new(account, initial_version()))),
 
                 Err(_) => Err(repository_error("find transit account")),
             };
@@ -261,6 +266,7 @@ mod tests {
         fn save_transit_account<'a>(
             &'a mut self,
             account: &'a TransitAccount,
+            _condition: SaveCondition,
         ) -> RepositoryFuture<'a, ()> {
             let account = account.clone();
             let state = Arc::clone(&self.state);
@@ -280,13 +286,14 @@ mod tests {
         fn find_fare_credential(
             &mut self,
             credential_id: FareCredentialId,
-        ) -> RepositoryFuture<'_, Option<FareCredential>> {
+        ) -> RepositoryFuture<'_, Option<VersionedAggregate<FareCredential>>> {
             let result = match self.state.lock() {
                 Ok(state) => Ok(state
                     .saved_credential
                     .as_ref()
                     .filter(|credential| credential.id() == credential_id)
-                    .cloned()),
+                    .cloned()
+                    .map(|credential| VersionedAggregate::new(credential, initial_version()))),
 
                 Err(_) => Err(repository_error("find fare credential")),
             };
@@ -297,6 +304,7 @@ mod tests {
         fn save_fare_credential<'a>(
             &'a mut self,
             credential: &'a FareCredential,
+            _condition: SaveCondition,
         ) -> RepositoryFuture<'a, ()> {
             let credential = credential.clone();
             let state = Arc::clone(&self.state);
@@ -320,13 +328,14 @@ mod tests {
         fn find_reader_equipment(
             &mut self,
             _reader_id: ReaderId,
-        ) -> RepositoryFuture<'_, Option<ReaderEquipment>> {
+        ) -> RepositoryFuture<'_, Option<VersionedAggregate<ReaderEquipment>>> {
             Box::pin(async { Ok(None) })
         }
 
         fn save_reader_equipment<'a>(
             &'a mut self,
             _reader: &'a ReaderEquipment,
+            _condition: SaveCondition,
         ) -> RepositoryFuture<'a, ()> {
             Box::pin(async { Ok(()) })
         }
@@ -420,6 +429,15 @@ mod tests {
     impl DomainEventIdGenerator for FixedEventIdGenerator {
         fn generate(&self) -> DomainEventId {
             self.id
+        }
+    }
+
+    fn initial_version() -> AggregateVersion {
+        match AggregateVersion::new(1) {
+            Ok(version) => version,
+            Err(error) => {
+                panic!("valid initial aggregate version failed: {error}")
+            }
         }
     }
 

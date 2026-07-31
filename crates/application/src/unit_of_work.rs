@@ -3,48 +3,50 @@ use transitguard_domain::{
     TransitAccountId,
 };
 
-use crate::RepositoryFuture;
+use crate::{RepositoryFuture, SaveCondition, VersionedAggregate};
 
 /// A transaction-scoped set of application persistence operations.
 ///
-/// Implementations must keep changes provisional until `commit` succeeds.
-/// Calling `rollback`, or dropping an implementation without committing,
-/// must prevent provisional changes from becoming durable.
+/// Implementations must enforce save conditions and keep all changes
+/// provisional until `commit` succeeds.
 pub trait ApplicationTransaction: Send {
-    /// Finds a transit account inside the current transaction.
+    /// Finds a versioned transit account inside the transaction.
     fn find_transit_account(
         &mut self,
         account_id: TransitAccountId,
-    ) -> RepositoryFuture<'_, Option<TransitAccount>>;
+    ) -> RepositoryFuture<'_, Option<VersionedAggregate<TransitAccount>>>;
 
-    /// Saves a transit account inside the current transaction.
+    /// Saves a transit account under an atomic condition.
     fn save_transit_account<'a>(
         &'a mut self,
         account: &'a TransitAccount,
+        condition: SaveCondition,
     ) -> RepositoryFuture<'a, ()>;
 
-    /// Finds a fare credential inside the current transaction.
+    /// Finds a versioned fare credential inside the transaction.
     fn find_fare_credential(
         &mut self,
         credential_id: FareCredentialId,
-    ) -> RepositoryFuture<'_, Option<FareCredential>>;
+    ) -> RepositoryFuture<'_, Option<VersionedAggregate<FareCredential>>>;
 
-    /// Saves a fare credential inside the current transaction.
+    /// Saves a fare credential under an atomic condition.
     fn save_fare_credential<'a>(
         &'a mut self,
         credential: &'a FareCredential,
+        condition: SaveCondition,
     ) -> RepositoryFuture<'a, ()>;
 
-    /// Finds reader equipment inside the current transaction.
+    /// Finds versioned reader equipment inside the transaction.
     fn find_reader_equipment(
         &mut self,
         reader_id: ReaderId,
-    ) -> RepositoryFuture<'_, Option<ReaderEquipment>>;
+    ) -> RepositoryFuture<'_, Option<VersionedAggregate<ReaderEquipment>>>;
 
-    /// Saves reader equipment inside the current transaction.
+    /// Saves reader equipment under an atomic condition.
     fn save_reader_equipment<'a>(
         &'a mut self,
         reader: &'a ReaderEquipment,
+        condition: SaveCondition,
     ) -> RepositoryFuture<'a, ()>;
 
     /// Appends an immutable event inside the current transaction.
@@ -70,7 +72,7 @@ mod tests {
         TransitAccountId,
     };
 
-    use crate::RepositoryFuture;
+    use crate::{RepositoryFuture, SaveCondition, VersionedAggregate};
 
     use super::{ApplicationTransaction, TransactionManager};
 
@@ -80,13 +82,14 @@ mod tests {
         fn find_transit_account(
             &mut self,
             _account_id: TransitAccountId,
-        ) -> RepositoryFuture<'_, Option<TransitAccount>> {
+        ) -> RepositoryFuture<'_, Option<VersionedAggregate<TransitAccount>>> {
             Box::pin(async { Ok(None) })
         }
 
         fn save_transit_account<'a>(
             &'a mut self,
             _account: &'a TransitAccount,
+            _condition: SaveCondition,
         ) -> RepositoryFuture<'a, ()> {
             Box::pin(async { Ok(()) })
         }
@@ -94,13 +97,14 @@ mod tests {
         fn find_fare_credential(
             &mut self,
             _credential_id: FareCredentialId,
-        ) -> RepositoryFuture<'_, Option<FareCredential>> {
+        ) -> RepositoryFuture<'_, Option<VersionedAggregate<FareCredential>>> {
             Box::pin(async { Ok(None) })
         }
 
         fn save_fare_credential<'a>(
             &'a mut self,
             _credential: &'a FareCredential,
+            _condition: SaveCondition,
         ) -> RepositoryFuture<'a, ()> {
             Box::pin(async { Ok(()) })
         }
@@ -108,13 +112,14 @@ mod tests {
         fn find_reader_equipment(
             &mut self,
             _reader_id: ReaderId,
-        ) -> RepositoryFuture<'_, Option<ReaderEquipment>> {
+        ) -> RepositoryFuture<'_, Option<VersionedAggregate<ReaderEquipment>>> {
             Box::pin(async { Ok(None) })
         }
 
         fn save_reader_equipment<'a>(
             &'a mut self,
             _reader: &'a ReaderEquipment,
+            _condition: SaveCondition,
         ) -> RepositoryFuture<'a, ()> {
             Box::pin(async { Ok(()) })
         }

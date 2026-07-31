@@ -1,86 +1,68 @@
-use core::{
-    future::Future,
-    pin::Pin,
-};
+use core::{future::Future, pin::Pin};
 
 use transitguard_domain::{
-    DomainEvent,
-    DomainEventId,
-    FareCredential,
-    FareCredentialId,
-    ReaderEquipment,
-    ReaderId,
-    TransitAccount,
-    TransitAccountId,
+    DomainEvent, DomainEventId, FareCredential, FareCredentialId, ReaderEquipment, ReaderId,
+    TransitAccount, TransitAccountId,
 };
 
-use crate::RepositoryError;
+use crate::{RepositoryError, SaveCondition, VersionedAggregate};
 
 /// A boxed asynchronous repository operation.
-///
-/// Boxing keeps repository ports object-safe so application services can use
-/// runtime-selected PostgreSQL, in-memory, or test implementations.
-pub type RepositoryFuture<'a, T> = Pin<
-    Box<
-        dyn Future<
-                Output = Result<T, RepositoryError>,
-            > + Send
-            + 'a,
-    >,
->;
+pub type RepositoryFuture<'a, T> =
+    Pin<Box<dyn Future<Output = Result<T, RepositoryError>> + Send + 'a>>;
 
 /// Application-facing persistence operations for transit accounts.
 pub trait TransitAccountRepository: Send + Sync {
-    /// Finds a transit account by its strongly typed identifier.
+    /// Finds an account together with its persistence version.
     fn find_by_id(
         &self,
         account_id: TransitAccountId,
-    ) -> RepositoryFuture<'_, Option<TransitAccount>>;
+    ) -> RepositoryFuture<'_, Option<VersionedAggregate<TransitAccount>>>;
 
-    /// Persists the complete current account state.
+    /// Saves an account while atomically enforcing the condition.
     fn save<'a>(
         &'a self,
         account: &'a TransitAccount,
+        condition: SaveCondition,
     ) -> RepositoryFuture<'a, ()>;
 }
 
 /// Application-facing persistence operations for fare credentials.
 pub trait FareCredentialRepository: Send + Sync {
-    /// Finds a fare credential by its strongly typed identifier.
+    /// Finds a credential together with its persistence version.
     fn find_by_id(
         &self,
         credential_id: FareCredentialId,
-    ) -> RepositoryFuture<'_, Option<FareCredential>>;
+    ) -> RepositoryFuture<'_, Option<VersionedAggregate<FareCredential>>>;
 
-    /// Persists the complete current credential state.
+    /// Saves a credential while atomically enforcing the condition.
     fn save<'a>(
         &'a self,
         credential: &'a FareCredential,
+        condition: SaveCondition,
     ) -> RepositoryFuture<'a, ()>;
 }
 
 /// Application-facing persistence operations for reader equipment.
 pub trait ReaderEquipmentRepository: Send + Sync {
-    /// Finds reader equipment by its strongly typed identifier.
+    /// Finds reader equipment together with its persistence version.
     fn find_by_id(
         &self,
         reader_id: ReaderId,
-    ) -> RepositoryFuture<'_, Option<ReaderEquipment>>;
+    ) -> RepositoryFuture<'_, Option<VersionedAggregate<ReaderEquipment>>>;
 
-    /// Persists the complete current reader state.
+    /// Saves reader equipment while atomically enforcing the condition.
     fn save<'a>(
         &'a self,
         reader: &'a ReaderEquipment,
+        condition: SaveCondition,
     ) -> RepositoryFuture<'a, ()>;
 }
 
 /// Persistence operations for immutable domain events.
 pub trait DomainEventRepository: Send + Sync {
     /// Appends an immutable domain event.
-    fn append<'a>(
-        &'a self,
-        event: &'a DomainEvent,
-    ) -> RepositoryFuture<'a, ()>;
+    fn append<'a>(&'a self, event: &'a DomainEvent) -> RepositoryFuture<'a, ()>;
 }
 
 /// Generates fare-credential identifiers.
