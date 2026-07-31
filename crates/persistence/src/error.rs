@@ -58,6 +58,17 @@ pub enum PersistenceError {
         entity: &'static str,
     },
 
+    /// Serialization of a persistence record failed.
+    #[error("persistence serialization operation          `{operation}` failed")]
+    Serialization {
+        /// Stable serialization operation.
+        operation: &'static str,
+
+        /// Original serialization failure.
+        #[source]
+        source: serde_json::Error,
+    },
+
     /// SQLx failed during a named database operation.
     #[error("PostgreSQL operation `{operation}` failed")]
     Database {
@@ -79,6 +90,10 @@ pub enum PersistenceError {
 }
 
 impl PersistenceError {
+    pub(crate) fn serialization(operation: &'static str, source: serde_json::Error) -> Self {
+        Self::Serialization { operation, source }
+    }
+
     pub(crate) const fn database(operation: &'static str, source: sqlx::Error) -> Self {
         Self::Database { operation, source }
     }

@@ -24,6 +24,7 @@ expect_used = "deny"
 
 [workspace.dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1"
 sqlx = {
     version = "0.9.0",
     default-features = false,
@@ -31,6 +32,7 @@ sqlx = {
         "runtime-tokio",
         "tls-rustls-ring-native-roots",
         "postgres",
+        "json",
         "uuid",
         "migrate",
         "macros",

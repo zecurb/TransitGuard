@@ -1398,6 +1398,7 @@ version = "0.1.0"
 name = "transitguard-persistence"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "sqlx",
  "thiserror",
  "tokio",

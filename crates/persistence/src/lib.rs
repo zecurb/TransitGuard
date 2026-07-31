@@ -19,6 +19,6 @@ pub use error::PersistenceError;
 pub use postgres::{connect_postgres, run_postgres_migrations};
 
 pub use repositories::{
-    PostgresFareCredentialRepository, PostgresReaderEquipmentRepository,
-    PostgresTransitAccountRepository,
+    PostgresDomainEventRepository, PostgresFareCredentialRepository,
+    PostgresReaderEquipmentRepository, PostgresTransitAccountRepository,
 };
