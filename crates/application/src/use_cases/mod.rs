@@ -2,6 +2,7 @@
 
 mod activate_fare_credential;
 mod issue_fare_credential;
+mod replace_fare_credential;
 mod revoke_fare_credential;
 mod suspend_fare_credential;
 
@@ -11,6 +12,10 @@ pub use activate_fare_credential::{
 
 pub use issue_fare_credential::{
     IssueFareCredentialCommand, IssueFareCredentialService, IssuedFareCredential,
+};
+
+pub use replace_fare_credential::{
+    ReplaceFareCredentialCommand, ReplaceFareCredentialService, ReplacedFareCredential,
 };
 
 pub use revoke_fare_credential::{

@@ -26,6 +26,7 @@ pub use unit_of_work::{ApplicationTransaction, TransactionManager};
 pub use use_cases::{
     ActivateFareCredentialCommand, ActivateFareCredentialService, ActivatedFareCredential,
     IssueFareCredentialCommand, IssueFareCredentialService, IssuedFareCredential,
+    ReplaceFareCredentialCommand, ReplaceFareCredentialService, ReplacedFareCredential,
     RevokeFareCredentialCommand, RevokeFareCredentialService, RevokedFareCredential,
     SuspendFareCredentialCommand, SuspendFareCredentialService, SuspendedFareCredential,
 };
