@@ -1,14 +1,15 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! TransitGuard core domain model.
+//!
+//! This crate contains business concepts and invariants that remain
+//! independent from transport protocols, databases, application
+//! configuration, and concrete infrastructure.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod identifier;
+pub mod money;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use identifier::{
+    DomainEventId, FareCredentialId, FareTransactionId, IdentifierError, JourneyId, ReaderId,
+    RiderId, SynchronizationBatchId, TransitAccountId, TransitProductId, TransitProductInstanceId,
+};
+
+pub use money::{Currency, Money, MoneyError, MoneyOperation};
