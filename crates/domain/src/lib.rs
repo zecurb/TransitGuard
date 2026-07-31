@@ -9,6 +9,7 @@ pub mod credential;
 pub mod equipment;
 pub mod identifier;
 pub mod money;
+pub mod transaction;
 
 pub use account::{
     EligibilityClassification, StoredValueBalance, StoredValueError, TransitAccount,
@@ -31,3 +32,9 @@ pub use identifier::{
 };
 
 pub use money::{Currency, Money, MoneyError, MoneyOperation};
+
+pub use transaction::{
+    EventTime, FareApprovalReason, FareDecision, FareDecisionError, FarePolicyVersion,
+    FareProcessingMode, FareRejectionReason, FareTransaction, FareTransactionError,
+    FareTransactionStatus, FareTransactionValueError, LocalSequenceNumber,
+};
