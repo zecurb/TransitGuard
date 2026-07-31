@@ -24,5 +24,17 @@ expect_used = "deny"
 
 [workspace.dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
+sqlx = {
+    version = "0.9.0",
+    default-features = false,
+    features = [
+        "runtime-tokio",
+        "tls-rustls-ring-native-roots",
+        "postgres",
+        "uuid",
+        "migrate",
+        "macros",
+    ],
+}
 thiserror = "2.0.19"
 uuid = { version = "1.24.0", features = ["serde", "v7"] }
