@@ -7,6 +7,7 @@
 pub mod cap;
 pub mod evaluation;
 pub mod policy;
+pub mod product;
 pub mod transfer;
 
 pub use cap::{FareCapApplication, FareCapEvaluationError, FareCapHistory, apply_fare_caps};
@@ -19,6 +20,12 @@ pub use evaluation::{
 pub use policy::{
     DiscountBasisPoints, EligibilityDiscounts, FarePolicy, FarePolicyDefinition, FarePolicyError,
     FarePolicyValueError, TransferWindow, ZoneId,
+};
+
+pub use product::{
+    ProductApplication, ProductApplicationOutcome, ProductEvaluationError, ProductInvalidReason,
+    TransitProduct, TransitProductCoverage, TransitProductDefinition, TransitProductError,
+    apply_transit_product,
 };
 
 pub use transfer::{TransferApplication, TransferEvaluationError, TransferHistory, apply_transfer};
