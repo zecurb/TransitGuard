@@ -4,9 +4,12 @@
 //! policy models and evaluation rules shared by backend applications and the
 //! reader simulator.
 
+pub mod cap;
 pub mod evaluation;
 pub mod policy;
 pub mod transfer;
+
+pub use cap::{FareCapApplication, FareCapEvaluationError, FareCapHistory, apply_fare_caps};
 
 pub use evaluation::{
     FareCalculationStage, FareDecisionEvidence, FareEvaluation, FareEvaluationError,
