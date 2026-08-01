@@ -154,6 +154,17 @@ impl TransitProduct {
     }
 }
 
+impl<'de> Deserialize<'de> for TransitProduct {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let definition = TransitProductDefinition::deserialize(deserializer)?;
+
+        Self::validate(definition).map_err(serde::de::Error::custom)
+    }
+}
+
 /// Stable reason that a presented product was invalid.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]
 pub enum ProductInvalidReason {
