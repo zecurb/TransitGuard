@@ -6,6 +6,7 @@
 
 pub mod cap;
 pub mod evaluation;
+pub mod offline;
 pub mod policy;
 pub mod product;
 pub mod transfer;
@@ -15,6 +16,11 @@ pub use cap::{FareCapApplication, FareCapEvaluationError, FareCapHistory, apply_
 pub use evaluation::{
     FareCalculationStage, FareDecisionEvidence, FareEvaluation, FareEvaluationError,
     FareEvaluationInput, FareEvaluationOutcome, evaluate_fare,
+};
+
+pub use offline::{
+    OfflineEvaluationContext, OfflineEvaluationError, OfflineFareEvaluation, OfflineSnapshotKind,
+    evaluate_fare_offline,
 };
 
 pub use policy::{

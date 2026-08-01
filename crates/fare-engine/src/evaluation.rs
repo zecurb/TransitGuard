@@ -307,6 +307,12 @@ impl FareEvaluation {
         self.outcome
     }
 
+    /// Replaces the decision outcome while preserving calculation evidence.
+    pub(crate) fn with_outcome(mut self, outcome: FareEvaluationOutcome) -> Self {
+        self.outcome = outcome;
+        self
+    }
+
     /// Returns the complete decision evidence.
     #[must_use]
     pub const fn evidence(self) -> FareDecisionEvidence {
