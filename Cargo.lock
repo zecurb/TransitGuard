@@ -1426,6 +1426,7 @@ dependencies = [
  "thiserror",
  "transitguard-device-protocol",
  "transitguard-domain",
+ "transitguard-fare-engine",
 ]
 
 [[package]]

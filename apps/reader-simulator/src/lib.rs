@@ -3,6 +3,12 @@
 //! The simulator uses only project-owned identities, credential formats, and
 //! protocol messages.
 
+pub mod fare_processing;
+
+pub use fare_processing::{
+    ReaderFareContext, ReaderFareEvaluation, ReaderFareProcessingError, ReaderTapDecision,
+};
+
 use serde::Serialize;
 use thiserror::Error;
 use transitguard_device_protocol::{
@@ -273,7 +279,7 @@ impl ReaderSimulator {
 
     /// Returns the reader identity.
     #[must_use]
-    pub const fn reader_id(self) -> ReaderId {
+    pub const fn reader_id(&self) -> ReaderId {
         self.reader_id
     }
 
