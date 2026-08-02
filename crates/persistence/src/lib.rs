@@ -14,6 +14,7 @@ mod reader_queue;
 mod reader_queue_state;
 mod reader_sqlite;
 mod reader_sync;
+mod reader_sync_state;
 mod repositories;
 mod transaction;
 
@@ -42,6 +43,12 @@ pub use reader_sqlite::{
 pub use reader_sync::{
     ReaderSynchronizationError, SynchronizationBatch, SynchronizationBatchEntry,
     SynchronizationBatchState, create_synchronization_batch, load_synchronization_batch,
+};
+
+pub use reader_sync_state::{
+    ReaderSynchronizationStateError, load_ready_synchronization_batches,
+    mark_synchronization_batch_in_flight, record_synchronization_retryable_failure,
+    recover_interrupted_synchronization_batches,
 };
 
 pub use repositories::{

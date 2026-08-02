@@ -410,7 +410,6 @@ pub async fn create_synchronization_batch(
             UPDATE offline_transactions
             SET
                 queue_state = 'in_flight',
-                attempt_count = attempt_count + 1,
                 next_retry_at_unix_milliseconds = NULL,
                 last_failure_category = NULL,
                 updated_at_unix_milliseconds = ?
@@ -921,8 +920,8 @@ mod tests {
         assert_eq!(queue[0].queue_state(), OfflineQueueState::InFlight);
         assert_eq!(queue[1].queue_state(), OfflineQueueState::InFlight);
         assert_eq!(queue[2].queue_state(), OfflineQueueState::Pending);
-        assert_eq!(queue[0].attempt_count(), 1);
-        assert_eq!(queue[1].attempt_count(), 1);
+        assert_eq!(queue[0].attempt_count(), 0);
+        assert_eq!(queue[1].attempt_count(), 0);
 
         pool.close().await;
         remove_database(&path);
