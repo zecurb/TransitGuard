@@ -13,6 +13,7 @@ mod postgres;
 mod reader_queue;
 mod reader_queue_state;
 mod reader_sqlite;
+mod reader_sync;
 mod repositories;
 mod transaction;
 
@@ -36,6 +37,11 @@ pub use reader_queue_state::{
 pub use reader_sqlite::{
     ReaderDatabaseIdentity, ReaderDatabaseState, ReaderSqliteConfig, ReaderStorageError,
     bind_reader_database, connect_reader_sqlite, run_reader_sqlite_migrations,
+};
+
+pub use reader_sync::{
+    ReaderSynchronizationError, SynchronizationBatch, SynchronizationBatchEntry,
+    SynchronizationBatchState, create_synchronization_batch, load_synchronization_batch,
 };
 
 pub use repositories::{

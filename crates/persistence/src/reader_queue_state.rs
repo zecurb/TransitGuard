@@ -250,6 +250,23 @@ pub async fn recover_interrupted_offline_queue(
             reader_id = ?
             AND queue_state = 'in_flight'
             AND updated_at_unix_milliseconds <= ?
+            AND NOT EXISTS (
+                SELECT 1
+                FROM synchronization_entries AS entry
+                INNER JOIN synchronization_batches AS batch
+                    ON batch.batch_id = entry.batch_id
+                    AND batch.reader_id = entry.reader_id
+                WHERE
+                    entry.fare_transaction_id =
+                        offline_transactions.fare_transaction_id
+                    AND entry.reader_id =
+                        offline_transactions.reader_id
+                    AND batch.batch_state IN (
+                        'prepared',
+                        'in_flight',
+                        'retryable_failure'
+                    )
+            )
         "#,
     )
     .bind(recovered_at_unix_milliseconds)
