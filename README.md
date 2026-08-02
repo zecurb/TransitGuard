@@ -7,18 +7,28 @@ The project models fictional transit cards, reader equipment, protected
 credentials, offline fare transactions, reconciliation, administrative
 services, and operational monitoring.
 
-> Current status: Phase 3 — PostgreSQL persistence
+> Current status: Phase 6 — durable reader-local SQLite offline processing
+
+## Implemented capabilities
+
+- Strongly typed fictional transit domain model
+- Credential and reader-equipment lifecycle services
+- PostgreSQL persistence adapters
+- Deterministic online and offline fare evaluation
+- Zone pricing, discounts, transfers, fare caps, and transit products
+- Fictional reader simulator and project-owned device protocol
+- Atomic reader-local sequence allocation and offline queue insertion
+- Durable SQLite synchronization batches and stable retry identities
+- Validated, idempotent synchronization acknowledgements
+- Atomic partial-outcome application
+- Durable retry, permanent-failure, and manual-review records
+- Reader queue and synchronization health snapshots
 
 ## Planned capabilities
 
-- Secure fictional card and equipment identities
-- Fare validation and calculation
-- Balances, passes, transfers, and fare caps
-- Offline reader processing
-- Delayed synchronization
-- Duplicate detection and idempotency
-- Transaction reconciliation
-- Audit logging and observability
+- Backend synchronization transport
+- Reconciliation workflows
+- Audit-event pipelines and operational dashboards
 - Administrative web application
 - Passenger mobile application
 
@@ -31,6 +41,9 @@ cards, readers, keys, and infrastructure are fictional and project-owned.
 ## Development documentation
 
 - [Local PostgreSQL persistence validation](docs/development/postgresql-validation.md)
+- [Deterministic fare engine](docs/development/fare-engine.md)
+- [Reader simulator](docs/development/reader-simulator.md)
+- [Reader-local offline storage and recovery](docs/development/reader-offline-storage.md)
 
 ## License
 
