@@ -32,6 +32,7 @@ sqlx = {
         "runtime-tokio",
         "tls-rustls-ring-native-roots",
         "postgres",
+        "sqlite",
         "json",
         "uuid",
         "migrate",
