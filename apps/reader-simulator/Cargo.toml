@@ -7,6 +7,10 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+serde.workspace = true
+thiserror.workspace = true
+transitguard-device-protocol = { path = "../../crates/device-protocol" }
+transitguard-domain = { path = "../../crates/domain" }
 
 [lints]
 workspace = true

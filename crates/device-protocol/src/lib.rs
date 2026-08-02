@@ -1,14 +1,14 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Project-owned protocol types used by TransitGuard reader simulators.
+//!
+//! These types do not implement or claim compatibility with any real
+//! transit-card, mobile-wallet, or fare-reader protocol.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod presentation;
+pub mod version;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use presentation::{
+    CredentialMedium, CredentialPresentation, CredentialPresentationDefinition,
+    PresentationValueError, ProtocolZoneId,
+};
+
+pub use version::{DeviceProtocolVersion, DeviceProtocolVersionError};
