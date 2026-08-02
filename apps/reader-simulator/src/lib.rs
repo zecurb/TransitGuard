@@ -4,9 +4,15 @@
 //! protocol messages.
 
 pub mod fare_processing;
+pub mod scenario;
 
 pub use fare_processing::{
     ReaderFareContext, ReaderFareEvaluation, ReaderFareProcessingError, ReaderTapDecision,
+};
+
+pub use scenario::{
+    ScenarioAction, ScenarioActionKind, ScenarioFailureCategory, ScenarioReport,
+    ScenarioStepRecord, ScenarioStepResult, run_scenario,
 };
 
 use serde::Serialize;
