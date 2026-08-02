@@ -8,10 +8,7 @@ use transitguard_domain::{
     FareTransactionId, LocalSequenceNumber, ReaderId, SynchronizationBatchId,
 };
 
-use crate::{
-    ReaderSynchronizationError, SynchronizationBatch, SynchronizationBatchState,
-    load_synchronization_batch,
-};
+use crate::{ReaderSynchronizationError, SynchronizationBatch, load_synchronization_batch};
 
 /// Backend resolution for one transaction inside a synchronization batch.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -565,12 +562,6 @@ fn validate_against_batch(
         }
     }
 
-    if batch.state() != SynchronizationBatchState::InFlight {
-        return Err(ReaderAcknowledgementError::BatchNotInFlight {
-            batch_id: batch.batch_id(),
-        });
-    }
-
     Ok(())
 }
 
@@ -713,9 +704,9 @@ mod tests {
 
     use crate::{
         OfflineTransactionDraft, ReaderDatabaseIdentity, ReaderSqliteConfig, SynchronizationBatch,
-        bind_reader_database, connect_reader_sqlite, create_synchronization_batch,
-        enqueue_offline_transaction, mark_synchronization_batch_in_flight,
-        run_reader_sqlite_migrations,
+        apply_synchronization_acknowledgement, bind_reader_database, connect_reader_sqlite,
+        create_synchronization_batch, enqueue_offline_transaction,
+        mark_synchronization_batch_in_flight, run_reader_sqlite_migrations,
     };
 
     use super::{
@@ -1054,6 +1045,65 @@ mod tests {
         };
 
         assert_eq!(count, 1);
+
+        pool.close().await;
+        remove_database(&path);
+    }
+
+    #[tokio::test]
+    async fn acknowledgement_replays_remain_idempotent_after_application() {
+        let reader_id = ReaderId::generate();
+
+        let (path, pool) = open_database("replay-after-application", reader_id).await;
+
+        let batch = submitted_batch(&pool, reader_id, 1).await;
+
+        let value = acknowledgement(&batch, vec![SynchronizationEntryResolution::Acknowledged]);
+
+        let first = store_synchronization_acknowledgement(&pool, &value).await;
+
+        assert!(matches!(
+            first,
+            Ok(ref stored) if !stored.replayed()
+        ));
+
+        let applied = apply_synchronization_acknowledgement(
+            &pool,
+            reader_id,
+            batch.batch_id(),
+            TEST_TIME + 500,
+        )
+        .await;
+
+        assert!(matches!(
+            applied,
+            Ok(report) if report.applied_now()
+        ));
+
+        let replay = store_synchronization_acknowledgement(&pool, &value).await;
+
+        assert!(matches!(
+            replay,
+            Ok(ref stored) if stored.replayed()
+        ));
+
+        let conflicting = acknowledgement(
+            &batch,
+            vec![SynchronizationEntryResolution::PermanentFailure {
+                failure_category: String::from("invalid_envelope"),
+            }],
+        );
+
+        let conflict = store_synchronization_acknowledgement(&pool, &conflicting).await;
+
+        assert!(matches!(
+            conflict,
+            Err(
+                ReaderAcknowledgementError::ConflictingReplay {
+                    batch_id,
+                }
+            ) if batch_id == batch.batch_id()
+        ));
 
         pool.close().await;
         remove_database(&path);
