@@ -4,23 +4,17 @@ use std::path::{Path, PathBuf};
 use sqlx::{
     SqlitePool,
     migrate::Migrator,
-    sqlite::{
-        SqliteConnectOptions, SqliteJournalMode,
-        SqlitePoolOptions, SqliteSynchronous,
-    },
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous},
 };
 use thiserror::Error;
 use transitguard_device_protocol::DeviceProtocolVersion;
 use transitguard_domain::ReaderId;
 
-static READER_MIGRATOR: Migrator =
-    sqlx::migrate!("./reader_migrations");
+static READER_MIGRATOR: Migrator = sqlx::migrate!("./reader_migrations");
 
-const DEFAULT_ACQUIRE_TIMEOUT: Duration =
-    Duration::from_secs(5);
+const DEFAULT_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(5);
 
-const DEFAULT_BUSY_TIMEOUT: Duration =
-    Duration::from_secs(5);
+const DEFAULT_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Validated configuration for one reader-local SQLite database.
 #[derive(Clone)]
@@ -32,15 +26,11 @@ pub struct ReaderSqliteConfig {
 
 impl ReaderSqliteConfig {
     /// Creates a reader-local SQLite configuration.
-    pub fn new(
-        database_path: impl Into<PathBuf>,
-    ) -> Result<Self, ReaderStorageError> {
+    pub fn new(database_path: impl Into<PathBuf>) -> Result<Self, ReaderStorageError> {
         let database_path = database_path.into();
 
         if database_path.as_os_str().is_empty() {
-            return Err(
-                ReaderStorageError::EmptyDatabasePath,
-            );
+            return Err(ReaderStorageError::EmptyDatabasePath);
         }
 
         Ok(Self {
@@ -56,9 +46,7 @@ impl ReaderSqliteConfig {
         acquire_timeout: Duration,
     ) -> Result<Self, ReaderStorageError> {
         if acquire_timeout.is_zero() {
-            return Err(
-                ReaderStorageError::ZeroAcquireTimeout,
-            );
+            return Err(ReaderStorageError::ZeroAcquireTimeout);
         }
 
         self.acquire_timeout = acquire_timeout;
@@ -67,14 +55,9 @@ impl ReaderSqliteConfig {
     }
 
     /// Sets the SQLite lock busy timeout.
-    pub fn with_busy_timeout(
-        mut self,
-        busy_timeout: Duration,
-    ) -> Result<Self, ReaderStorageError> {
+    pub fn with_busy_timeout(mut self, busy_timeout: Duration) -> Result<Self, ReaderStorageError> {
         if busy_timeout.is_zero() {
-            return Err(
-                ReaderStorageError::ZeroBusyTimeout,
-            );
+            return Err(ReaderStorageError::ZeroBusyTimeout);
         }
 
         self.busy_timeout = busy_timeout;
@@ -102,17 +85,11 @@ impl ReaderSqliteConfig {
 }
 
 impl fmt::Debug for ReaderSqliteConfig {
-    fn fmt(
-        &self,
-        formatter: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ReaderSqliteConfig")
             .field("database_path", &"<redacted>")
-            .field(
-                "acquire_timeout",
-                &self.acquire_timeout,
-            )
+            .field("acquire_timeout", &self.acquire_timeout)
             .field("busy_timeout", &self.busy_timeout)
             .finish()
     }
@@ -137,31 +114,22 @@ impl ReaderDatabaseIdentity {
         protocol_version: DeviceProtocolVersion,
         initialized_at_unix_milliseconds: i64,
     ) -> Result<Self, ReaderStorageError> {
-        let environment_id =
-            environment_id.into().trim().to_owned();
+        let environment_id = environment_id.into().trim().to_owned();
 
         if environment_id.is_empty() {
-            return Err(
-                ReaderStorageError::EmptyEnvironmentId,
-            );
+            return Err(ReaderStorageError::EmptyEnvironmentId);
         }
 
-        let software_version =
-            software_version.into().trim().to_owned();
+        let software_version = software_version.into().trim().to_owned();
 
         if software_version.is_empty() {
-            return Err(
-                ReaderStorageError::EmptySoftwareVersion,
-            );
+            return Err(ReaderStorageError::EmptySoftwareVersion);
         }
 
         if initialized_at_unix_milliseconds < 0 {
-            return Err(
-                ReaderStorageError::NegativeInitializationTime {
-                    unix_milliseconds:
-                        initialized_at_unix_milliseconds,
-                },
-            );
+            return Err(ReaderStorageError::NegativeInitializationTime {
+                unix_milliseconds: initialized_at_unix_milliseconds,
+            });
         }
 
         Ok(Self {
@@ -193,17 +161,13 @@ impl ReaderDatabaseIdentity {
 
     /// Returns the project-owned protocol version.
     #[must_use]
-    pub const fn protocol_version(
-        &self,
-    ) -> DeviceProtocolVersion {
+    pub const fn protocol_version(&self) -> DeviceProtocolVersion {
         self.protocol_version
     }
 
     /// Returns the initialization timestamp.
     #[must_use]
-    pub const fn initialized_at_unix_milliseconds(
-        &self,
-    ) -> i64 {
+    pub const fn initialized_at_unix_milliseconds(&self) -> i64 {
         self.initialized_at_unix_milliseconds
     }
 }
@@ -242,9 +206,7 @@ impl ReaderDatabaseState {
 
     /// Returns the stored protocol version.
     #[must_use]
-    pub const fn protocol_version(
-        &self,
-    ) -> DeviceProtocolVersion {
+    pub const fn protocol_version(&self) -> DeviceProtocolVersion {
         self.protocol_version
     }
 
@@ -256,25 +218,19 @@ impl ReaderDatabaseState {
 
     /// Returns the last acknowledged local sequence.
     #[must_use]
-    pub const fn last_acknowledged_sequence(
-        &self,
-    ) -> u64 {
+    pub const fn last_acknowledged_sequence(&self) -> u64 {
         self.last_acknowledged_sequence
     }
 
     /// Returns the database creation timestamp.
     #[must_use]
-    pub const fn created_at_unix_milliseconds(
-        &self,
-    ) -> i64 {
+    pub const fn created_at_unix_milliseconds(&self) -> i64 {
         self.created_at_unix_milliseconds
     }
 
     /// Returns the last metadata update timestamp.
     #[must_use]
-    pub const fn updated_at_unix_milliseconds(
-        &self,
-    ) -> i64 {
+    pub const fn updated_at_unix_milliseconds(&self) -> i64 {
         self.updated_at_unix_milliseconds
     }
 }
@@ -283,48 +239,34 @@ impl ReaderDatabaseState {
 #[derive(Debug, Error)]
 pub enum ReaderStorageError {
     /// No usable reader database path was supplied.
-    #[error(
-        "reader SQLite database path must not be empty"
-    )]
+    #[error("reader SQLite database path must not be empty")]
     EmptyDatabasePath,
 
     /// Connection acquisition must be bounded.
-    #[error(
-        "reader SQLite acquire timeout must be greater than zero"
-    )]
+    #[error("reader SQLite acquire timeout must be greater than zero")]
     ZeroAcquireTimeout,
 
     /// Lock waiting must be bounded.
-    #[error(
-        "reader SQLite busy timeout must be greater than zero"
-    )]
+    #[error("reader SQLite busy timeout must be greater than zero")]
     ZeroBusyTimeout,
 
     /// Reader databases must identify an environment.
-    #[error(
-        "reader database environment identifier must not be empty"
-    )]
+    #[error("reader database environment identifier must not be empty")]
     EmptyEnvironmentId,
 
     /// Reader databases must identify software.
-    #[error(
-        "reader software version must not be empty"
-    )]
+    #[error("reader software version must not be empty")]
     EmptySoftwareVersion,
 
     /// Initialization time cannot predate the epoch.
-    #[error(
-        "reader database initialization time cannot be negative: {unix_milliseconds}"
-    )]
+    #[error("reader database initialization time cannot be negative: {unix_milliseconds}")]
     NegativeInitializationTime {
         /// Invalid Unix timestamp in milliseconds.
         unix_milliseconds: i64,
     },
 
     /// The database belongs to another reader.
-    #[error(
-        "stored reader {actual} does not match configured reader {expected}"
-    )]
+    #[error("stored reader {actual} does not match configured reader {expected}")]
     ReaderIdentityMismatch {
         /// Reader expected by the process.
         expected: ReaderId,
@@ -346,18 +288,14 @@ pub enum ReaderStorageError {
     },
 
     /// SQLite contains invalid durable metadata.
-    #[error(
-        "reader SQLite record contains an invalid value for `{field}`"
-    )]
+    #[error("reader SQLite record contains an invalid value for `{field}`")]
     InvalidStoredValue {
         /// Stable schema field name.
         field: &'static str,
     },
 
     /// A named SQLite operation failed.
-    #[error(
-        "reader SQLite operation `{operation}` failed"
-    )]
+    #[error("reader SQLite operation `{operation}` failed")]
     Database {
         /// Stable operation category.
         operation: &'static str,
@@ -377,22 +315,15 @@ pub enum ReaderStorageError {
 }
 
 impl ReaderStorageError {
-    fn database(
-        operation: &'static str,
-        source: sqlx::Error,
-    ) -> Self {
+    fn database(operation: &'static str, source: sqlx::Error) -> Self {
         Self::Database { operation, source }
     }
 
-    fn migration(
-        source: sqlx::migrate::MigrateError,
-    ) -> Self {
+    fn migration(source: sqlx::migrate::MigrateError) -> Self {
         Self::Migration { source }
     }
 
-    const fn invalid_stored_value(
-        field: &'static str,
-    ) -> Self {
+    const fn invalid_stored_value(field: &'static str) -> Self {
         Self::InvalidStoredValue { field }
     }
 }
@@ -430,18 +361,11 @@ pub async fn connect_reader_sqlite(
         .acquire_timeout(config.acquire_timeout())
         .connect_with(options)
         .await
-        .map_err(|source| {
-            ReaderStorageError::database(
-                "connect",
-                source,
-            )
-        })
+        .map_err(|source| ReaderStorageError::database("connect", source))
 }
 
 /// Applies all embedded reader-local migrations.
-pub async fn run_reader_sqlite_migrations(
-    pool: &SqlitePool,
-) -> Result<(), ReaderStorageError> {
+pub async fn run_reader_sqlite_migrations(pool: &SqlitePool) -> Result<(), ReaderStorageError> {
     READER_MIGRATOR
         .run(pool)
         .await
@@ -457,13 +381,10 @@ pub async fn bind_reader_database(
     pool: &SqlitePool,
     identity: &ReaderDatabaseIdentity,
 ) -> Result<ReaderDatabaseState, ReaderStorageError> {
-    let mut transaction =
-        pool.begin().await.map_err(|source| {
-            ReaderStorageError::database(
-                "begin identity binding",
-                source,
-            )
-        })?;
+    let mut transaction = pool
+        .begin()
+        .await
+        .map_err(|source| ReaderStorageError::database("begin identity binding", source))?;
 
     sqlx::query(
         r#"
@@ -485,23 +406,12 @@ pub async fn bind_reader_database(
     .bind(identity.reader_id().to_string())
     .bind(identity.environment_id())
     .bind(identity.software_version())
-    .bind(i64::from(
-        identity.protocol_version().value(),
-    ))
-    .bind(
-        identity.initialized_at_unix_milliseconds(),
-    )
-    .bind(
-        identity.initialized_at_unix_milliseconds(),
-    )
+    .bind(i64::from(identity.protocol_version().value()))
+    .bind(identity.initialized_at_unix_milliseconds())
+    .bind(identity.initialized_at_unix_milliseconds())
     .execute(&mut *transaction)
     .await
-    .map_err(|source| {
-        ReaderStorageError::database(
-            "initialize reader identity",
-            source,
-        )
-    })?;
+    .map_err(|source| ReaderStorageError::database("initialize reader identity", source))?;
 
     let stored = sqlx::query_as::<_, StoredReaderState>(
         r#"
@@ -520,46 +430,28 @@ pub async fn bind_reader_database(
     )
     .fetch_one(&mut *transaction)
     .await
-    .map_err(|source| {
-        ReaderStorageError::database(
-            "load reader identity",
-            source,
-        )
-    })?;
+    .map_err(|source| ReaderStorageError::database("load reader identity", source))?;
 
     let state = decode_stored_state(stored)?;
 
     if state.reader_id() != identity.reader_id() {
-        return Err(
-            ReaderStorageError::ReaderIdentityMismatch {
-                expected: identity.reader_id(),
-                actual: state.reader_id(),
-            },
-        );
+        return Err(ReaderStorageError::ReaderIdentityMismatch {
+            expected: identity.reader_id(),
+            actual: state.reader_id(),
+        });
     }
 
-    if state.environment_id()
-        != identity.environment_id()
-    {
-        return Err(
-            ReaderStorageError::EnvironmentMismatch {
-                expected:
-                    identity.environment_id().to_owned(),
-                actual:
-                    state.environment_id().to_owned(),
-            },
-        );
+    if state.environment_id() != identity.environment_id() {
+        return Err(ReaderStorageError::EnvironmentMismatch {
+            expected: identity.environment_id().to_owned(),
+            actual: state.environment_id().to_owned(),
+        });
     }
 
     transaction
         .commit()
         .await
-        .map_err(|source| {
-            ReaderStorageError::database(
-                "commit identity binding",
-                source,
-            )
-        })?;
+        .map_err(|source| ReaderStorageError::database("commit identity binding", source))?;
 
     Ok(state)
 }
@@ -567,83 +459,45 @@ pub async fn bind_reader_database(
 fn decode_stored_state(
     stored: StoredReaderState,
 ) -> Result<ReaderDatabaseState, ReaderStorageError> {
-    let reader_id =
-        stored.reader_id.parse::<ReaderId>().map_err(
-            |_| {
-                ReaderStorageError::invalid_stored_value(
-                    "reader_id",
-                )
-            },
-        )?;
+    let reader_id = stored
+        .reader_id
+        .parse::<ReaderId>()
+        .map_err(|_| ReaderStorageError::invalid_stored_value("reader_id"))?;
 
-    let protocol_value =
-        u16::try_from(stored.protocol_version)
-            .map_err(|_| {
-                ReaderStorageError::invalid_stored_value(
-                    "protocol_version",
-                )
-            })?;
+    let protocol_value = u16::try_from(stored.protocol_version)
+        .map_err(|_| ReaderStorageError::invalid_stored_value("protocol_version"))?;
 
-    let protocol_version =
-        DeviceProtocolVersion::new(protocol_value)
-            .map_err(|_| {
-                ReaderStorageError::invalid_stored_value(
-                    "protocol_version",
-                )
-            })?;
+    let protocol_version = DeviceProtocolVersion::new(protocol_value)
+        .map_err(|_| ReaderStorageError::invalid_stored_value("protocol_version"))?;
 
-    let next_local_sequence =
-        u64::try_from(stored.next_local_sequence)
-            .map_err(|_| {
-                ReaderStorageError::invalid_stored_value(
-                    "next_local_sequence",
-                )
-            })?;
+    let next_local_sequence = u64::try_from(stored.next_local_sequence)
+        .map_err(|_| ReaderStorageError::invalid_stored_value("next_local_sequence"))?;
 
     if next_local_sequence == 0 {
-        return Err(
-            ReaderStorageError::invalid_stored_value(
-                "next_local_sequence",
-            ),
-        );
+        return Err(ReaderStorageError::invalid_stored_value(
+            "next_local_sequence",
+        ));
     }
 
-    let last_acknowledged_sequence =
-        u64::try_from(
-            stored.last_acknowledged_sequence,
-        )
-        .map_err(|_| {
-            ReaderStorageError::invalid_stored_value(
-                "last_acknowledged_sequence",
-            )
-        })?;
+    let last_acknowledged_sequence = u64::try_from(stored.last_acknowledged_sequence)
+        .map_err(|_| ReaderStorageError::invalid_stored_value("last_acknowledged_sequence"))?;
 
-    if last_acknowledged_sequence
-        >= next_local_sequence
-    {
-        return Err(
-            ReaderStorageError::invalid_stored_value(
-                "last_acknowledged_sequence",
-            ),
-        );
+    if last_acknowledged_sequence >= next_local_sequence {
+        return Err(ReaderStorageError::invalid_stored_value(
+            "last_acknowledged_sequence",
+        ));
     }
 
     if stored.created_at_unix_milliseconds < 0 {
-        return Err(
-            ReaderStorageError::invalid_stored_value(
-                "created_at_unix_milliseconds",
-            ),
-        );
+        return Err(ReaderStorageError::invalid_stored_value(
+            "created_at_unix_milliseconds",
+        ));
     }
 
-    if stored.updated_at_unix_milliseconds
-        < stored.created_at_unix_milliseconds
-    {
-        return Err(
-            ReaderStorageError::invalid_stored_value(
-                "updated_at_unix_milliseconds",
-            ),
-        );
+    if stored.updated_at_unix_milliseconds < stored.created_at_unix_milliseconds {
+        return Err(ReaderStorageError::invalid_stored_value(
+            "updated_at_unix_milliseconds",
+        ));
     }
 
     Ok(ReaderDatabaseState {
@@ -653,10 +507,8 @@ fn decode_stored_state(
         protocol_version,
         next_local_sequence,
         last_acknowledged_sequence,
-        created_at_unix_milliseconds:
-            stored.created_at_unix_milliseconds,
-        updated_at_unix_milliseconds:
-            stored.updated_at_unix_milliseconds,
+        created_at_unix_milliseconds: stored.created_at_unix_milliseconds,
+        updated_at_unix_milliseconds: stored.updated_at_unix_milliseconds,
     })
 }
 
@@ -674,27 +526,20 @@ mod tests {
     use uuid::Uuid;
 
     use super::{
-        ReaderDatabaseIdentity, ReaderSqliteConfig,
-        ReaderStorageError, bind_reader_database,
-        connect_reader_sqlite,
-        run_reader_sqlite_migrations,
+        ReaderDatabaseIdentity, ReaderSqliteConfig, ReaderStorageError, bind_reader_database,
+        connect_reader_sqlite, run_reader_sqlite_migrations,
     };
 
     const TEST_TIME: i64 = 1_700_000_000_000;
 
-    fn temporary_database_path(
-        test_name: &str,
-    ) -> PathBuf {
+    fn temporary_database_path(test_name: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
             "transitguard-{test_name}-{}.sqlite3",
             Uuid::now_v7()
         ))
     }
 
-    fn identity(
-        reader_id: ReaderId,
-        environment_id: &str,
-    ) -> ReaderDatabaseIdentity {
+    fn identity(reader_id: ReaderId, environment_id: &str) -> ReaderDatabaseIdentity {
         match ReaderDatabaseIdentity::new(
             reader_id,
             environment_id,
@@ -705,64 +550,44 @@ mod tests {
             Ok(identity) => identity,
 
             Err(error) => {
-                panic!(
-                    "valid reader identity failed: {error}"
-                )
+                panic!("valid reader identity failed: {error}")
             }
         }
     }
 
-    async fn open_test_database(
-        test_name: &str,
-    ) -> (PathBuf, SqlitePool) {
-        let path =
-            temporary_database_path(test_name);
+    async fn open_test_database(test_name: &str) -> (PathBuf, SqlitePool) {
+        let path = temporary_database_path(test_name);
 
-        let config = match ReaderSqliteConfig::new(
-            path.clone(),
-        ) {
+        let config = match ReaderSqliteConfig::new(path.clone()) {
             Ok(config) => config,
 
             Err(error) => {
-                panic!(
-                    "valid SQLite configuration failed: {error}"
-                )
+                panic!("valid SQLite configuration failed: {error}")
             }
         };
 
-        let pool =
-            match connect_reader_sqlite(&config).await {
-                Ok(pool) => pool,
+        let pool = match connect_reader_sqlite(&config).await {
+            Ok(pool) => pool,
 
-                Err(error) => {
-                    remove_database_files(&path);
+            Err(error) => {
+                remove_database_files(&path);
 
-                    panic!(
-                        "SQLite connection failed: {error}"
-                    )
-                }
-            };
+                panic!("SQLite connection failed: {error}")
+            }
+        };
 
-        if let Err(error) =
-            run_reader_sqlite_migrations(&pool).await
-        {
+        if let Err(error) = run_reader_sqlite_migrations(&pool).await {
             pool.close().await;
             remove_database_files(&path);
 
-            panic!(
-                "reader migration failed: {error}"
-            );
+            panic!("reader migration failed: {error}");
         }
 
         (path, pool)
     }
 
-    fn related_path(
-        path: &Path,
-        suffix: &str,
-    ) -> PathBuf {
-        let mut value =
-            OsString::from(path.as_os_str());
+    fn related_path(path: &Path, suffix: &str) -> PathBuf {
+        let mut value = OsString::from(path.as_os_str());
 
         value.push(suffix);
 
@@ -772,83 +597,53 @@ mod tests {
     fn remove_database_files(path: &Path) {
         let _ = std::fs::remove_file(path);
 
-        let _ = std::fs::remove_file(
-            related_path(path, "-wal"),
-        );
+        let _ = std::fs::remove_file(related_path(path, "-wal"));
 
-        let _ = std::fs::remove_file(
-            related_path(path, "-shm"),
-        );
+        let _ = std::fs::remove_file(related_path(path, "-shm"));
     }
 
     #[test]
     fn configuration_defaults_are_bounded() {
-        let path = temporary_database_path(
-            "configuration-defaults",
-        );
+        let path = temporary_database_path("configuration-defaults");
 
-        let config =
-            match ReaderSqliteConfig::new(&path) {
-                Ok(config) => config,
+        let config = match ReaderSqliteConfig::new(&path) {
+            Ok(config) => config,
 
-                Err(error) => {
-                    panic!(
-                        "valid configuration failed: {error}"
-                    )
-                }
-            };
+            Err(error) => {
+                panic!("valid configuration failed: {error}")
+            }
+        };
 
-        assert_eq!(
-            config.acquire_timeout(),
-            Duration::from_secs(5)
-        );
+        assert_eq!(config.acquire_timeout(), Duration::from_secs(5));
 
-        assert_eq!(
-            config.busy_timeout(),
-            Duration::from_secs(5)
-        );
+        assert_eq!(config.busy_timeout(), Duration::from_secs(5));
 
         let debug_output = format!("{config:?}");
 
         assert!(debug_output.contains("<redacted>"));
-        assert!(
-            !debug_output.contains(
-                "configuration-defaults"
-            )
-        );
+        assert!(!debug_output.contains("configuration-defaults"));
     }
 
     #[test]
     fn invalid_configuration_is_rejected() {
         assert!(matches!(
             ReaderSqliteConfig::new(PathBuf::new()),
-            Err(
-                ReaderStorageError::EmptyDatabasePath
-            )
+            Err(ReaderStorageError::EmptyDatabasePath)
         ));
 
-        let path = temporary_database_path(
-            "invalid-timeouts",
-        );
+        let path = temporary_database_path("invalid-timeouts");
 
-        let config =
-            match ReaderSqliteConfig::new(path) {
-                Ok(config) => config,
+        let config = match ReaderSqliteConfig::new(path) {
+            Ok(config) => config,
 
-                Err(error) => {
-                    panic!(
-                        "valid configuration failed: {error}"
-                    )
-                }
-            };
+            Err(error) => {
+                panic!("valid configuration failed: {error}")
+            }
+        };
 
         assert!(matches!(
-            config
-                .clone()
-                .with_acquire_timeout(Duration::ZERO),
-            Err(
-                ReaderStorageError::ZeroAcquireTimeout
-            )
+            config.clone().with_acquire_timeout(Duration::ZERO),
+            Err(ReaderStorageError::ZeroAcquireTimeout)
         ));
 
         assert!(matches!(
@@ -859,90 +654,66 @@ mod tests {
 
     #[tokio::test]
     async fn required_sqlite_pragmas_are_enabled() {
-        let (path, pool) =
-            open_test_database("required-pragmas").await;
+        let (path, pool) = open_test_database("required-pragmas").await;
 
-        let foreign_keys =
-            match sqlx::query_scalar::<_, i64>(
-                "PRAGMA foreign_keys",
-            )
+        let foreign_keys = match sqlx::query_scalar::<_, i64>("PRAGMA foreign_keys")
             .fetch_one(&pool)
             .await
-            {
-                Ok(value) => value,
+        {
+            Ok(value) => value,
 
-                Err(error) => {
-                    pool.close().await;
-                    remove_database_files(&path);
+            Err(error) => {
+                pool.close().await;
+                remove_database_files(&path);
 
-                    panic!(
-                        "foreign-key query failed: {error}"
-                    )
-                }
-            };
+                panic!("foreign-key query failed: {error}")
+            }
+        };
 
-        let journal_mode =
-            match sqlx::query_scalar::<_, String>(
-                "PRAGMA journal_mode",
-            )
+        let journal_mode = match sqlx::query_scalar::<_, String>("PRAGMA journal_mode")
             .fetch_one(&pool)
             .await
-            {
-                Ok(value) => value,
+        {
+            Ok(value) => value,
 
-                Err(error) => {
-                    pool.close().await;
-                    remove_database_files(&path);
+            Err(error) => {
+                pool.close().await;
+                remove_database_files(&path);
 
-                    panic!(
-                        "journal-mode query failed: {error}"
-                    )
-                }
-            };
+                panic!("journal-mode query failed: {error}")
+            }
+        };
 
-        let busy_timeout =
-            match sqlx::query_scalar::<_, i64>(
-                "PRAGMA busy_timeout",
-            )
+        let busy_timeout = match sqlx::query_scalar::<_, i64>("PRAGMA busy_timeout")
             .fetch_one(&pool)
             .await
-            {
-                Ok(value) => value,
+        {
+            Ok(value) => value,
 
-                Err(error) => {
-                    pool.close().await;
-                    remove_database_files(&path);
+            Err(error) => {
+                pool.close().await;
+                remove_database_files(&path);
 
-                    panic!(
-                        "busy-timeout query failed: {error}"
-                    )
-                }
-            };
+                panic!("busy-timeout query failed: {error}")
+            }
+        };
 
-        let synchronous =
-            match sqlx::query_scalar::<_, i64>(
-                "PRAGMA synchronous",
-            )
+        let synchronous = match sqlx::query_scalar::<_, i64>("PRAGMA synchronous")
             .fetch_one(&pool)
             .await
-            {
-                Ok(value) => value,
+        {
+            Ok(value) => value,
 
-                Err(error) => {
-                    pool.close().await;
-                    remove_database_files(&path);
+            Err(error) => {
+                pool.close().await;
+                remove_database_files(&path);
 
-                    panic!(
-                        "synchronous query failed: {error}"
-                    )
-                }
-            };
+                panic!("synchronous query failed: {error}")
+            }
+        };
 
         assert_eq!(foreign_keys, 1);
-        assert_eq!(
-            journal_mode.to_ascii_lowercase(),
-            "wal"
-        );
+        assert_eq!(journal_mode.to_ascii_lowercase(), "wal");
         assert_eq!(busy_timeout, 5_000);
         assert_eq!(synchronous, 2);
 
@@ -952,130 +723,82 @@ mod tests {
 
     #[tokio::test]
     async fn reader_identity_survives_reopen() {
-        let path = temporary_database_path(
-            "identity-reopen",
-        );
+        let path = temporary_database_path("identity-reopen");
 
-        let config =
-            match ReaderSqliteConfig::new(path.clone()) {
-                Ok(config) => config,
+        let config = match ReaderSqliteConfig::new(path.clone()) {
+            Ok(config) => config,
 
-                Err(error) => {
-                    panic!(
-                        "valid configuration failed: {error}"
-                    )
-                }
-            };
+            Err(error) => {
+                panic!("valid configuration failed: {error}")
+            }
+        };
 
         let reader_id = ReaderId::generate();
-        let expected =
-            identity(reader_id, "development");
+        let expected = identity(reader_id, "development");
 
-        let first_pool =
-            match connect_reader_sqlite(&config).await {
-                Ok(pool) => pool,
+        let first_pool = match connect_reader_sqlite(&config).await {
+            Ok(pool) => pool,
 
-                Err(error) => {
-                    remove_database_files(&path);
+            Err(error) => {
+                remove_database_files(&path);
 
-                    panic!(
-                        "first connection failed: {error}"
-                    )
-                }
-            };
+                panic!("first connection failed: {error}")
+            }
+        };
 
-        if let Err(error) =
-            run_reader_sqlite_migrations(&first_pool)
-                .await
-        {
+        if let Err(error) = run_reader_sqlite_migrations(&first_pool).await {
             first_pool.close().await;
             remove_database_files(&path);
 
-            panic!(
-                "first migration failed: {error}"
-            );
+            panic!("first migration failed: {error}");
         }
 
-        let first_state =
-            match bind_reader_database(
-                &first_pool,
-                &expected,
-            )
-            .await
-            {
-                Ok(state) => state,
+        let first_state = match bind_reader_database(&first_pool, &expected).await {
+            Ok(state) => state,
 
-                Err(error) => {
-                    first_pool.close().await;
-                    remove_database_files(&path);
+            Err(error) => {
+                first_pool.close().await;
+                remove_database_files(&path);
 
-                    panic!(
-                        "first identity binding failed: {error}"
-                    )
-                }
-            };
+                panic!("first identity binding failed: {error}")
+            }
+        };
 
         first_pool.close().await;
 
-        let second_pool =
-            match connect_reader_sqlite(&config).await {
-                Ok(pool) => pool,
+        let second_pool = match connect_reader_sqlite(&config).await {
+            Ok(pool) => pool,
 
-                Err(error) => {
-                    remove_database_files(&path);
+            Err(error) => {
+                remove_database_files(&path);
 
-                    panic!(
-                        "second connection failed: {error}"
-                    )
-                }
-            };
+                panic!("second connection failed: {error}")
+            }
+        };
 
-        if let Err(error) =
-            run_reader_sqlite_migrations(&second_pool)
-                .await
-        {
+        if let Err(error) = run_reader_sqlite_migrations(&second_pool).await {
             second_pool.close().await;
             remove_database_files(&path);
 
-            panic!(
-                "second migration failed: {error}"
-            );
+            panic!("second migration failed: {error}");
         }
 
-        let second_state =
-            match bind_reader_database(
-                &second_pool,
-                &expected,
-            )
-            .await
-            {
-                Ok(state) => state,
+        let second_state = match bind_reader_database(&second_pool, &expected).await {
+            Ok(state) => state,
 
-                Err(error) => {
-                    second_pool.close().await;
-                    remove_database_files(&path);
+            Err(error) => {
+                second_pool.close().await;
+                remove_database_files(&path);
 
-                    panic!(
-                        "second identity binding failed: {error}"
-                    )
-                }
-            };
+                panic!("second identity binding failed: {error}")
+            }
+        };
 
         assert_eq!(first_state, second_state);
         assert_eq!(second_state.reader_id(), reader_id);
-        assert_eq!(
-            second_state.environment_id(),
-            "development"
-        );
-        assert_eq!(
-            second_state.next_local_sequence(),
-            1
-        );
-        assert_eq!(
-            second_state
-                .last_acknowledged_sequence(),
-            0
-        );
+        assert_eq!(second_state.environment_id(), "development");
+        assert_eq!(second_state.next_local_sequence(), 1);
+        assert_eq!(second_state.last_acknowledged_sequence(), 0);
 
         second_pool.close().await;
         remove_database_files(&path);
@@ -1083,38 +806,23 @@ mod tests {
 
     #[tokio::test]
     async fn different_reader_is_rejected() {
-        let (path, pool) =
-            open_test_database("reader-mismatch").await;
+        let (path, pool) = open_test_database("reader-mismatch").await;
 
         let stored_reader = ReaderId::generate();
         let configured_reader = ReaderId::generate();
 
-        let stored_identity =
-            identity(stored_reader, "development");
+        let stored_identity = identity(stored_reader, "development");
 
-        if let Err(error) =
-            bind_reader_database(
-                &pool,
-                &stored_identity,
-            )
-            .await
-        {
+        if let Err(error) = bind_reader_database(&pool, &stored_identity).await {
             pool.close().await;
             remove_database_files(&path);
 
-            panic!(
-                "initial identity binding failed: {error}"
-            );
+            panic!("initial identity binding failed: {error}");
         }
 
-        let configured_identity =
-            identity(configured_reader, "development");
+        let configured_identity = identity(configured_reader, "development");
 
-        let result = bind_reader_database(
-            &pool,
-            &configured_identity,
-        )
-        .await;
+        let result = bind_reader_database(&pool, &configured_identity).await;
 
         assert!(matches!(
             result,
@@ -1134,40 +842,22 @@ mod tests {
 
     #[tokio::test]
     async fn different_environment_is_rejected() {
-        let (path, pool) =
-            open_test_database(
-                "environment-mismatch",
-            )
-            .await;
+        let (path, pool) = open_test_database("environment-mismatch").await;
 
         let reader_id = ReaderId::generate();
 
-        let stored_identity =
-            identity(reader_id, "development");
+        let stored_identity = identity(reader_id, "development");
 
-        if let Err(error) =
-            bind_reader_database(
-                &pool,
-                &stored_identity,
-            )
-            .await
-        {
+        if let Err(error) = bind_reader_database(&pool, &stored_identity).await {
             pool.close().await;
             remove_database_files(&path);
 
-            panic!(
-                "initial identity binding failed: {error}"
-            );
+            panic!("initial identity binding failed: {error}");
         }
 
-        let configured_identity =
-            identity(reader_id, "staging");
+        let configured_identity = identity(reader_id, "staging");
 
-        let result = bind_reader_database(
-            &pool,
-            &configured_identity,
-        )
-        .await;
+        let result = bind_reader_database(&pool, &configured_identity).await;
 
         assert!(matches!(
             result,
