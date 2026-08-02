@@ -11,6 +11,7 @@ mod config;
 mod error;
 mod postgres;
 mod reader_queue;
+mod reader_queue_state;
 mod reader_sqlite;
 mod repositories;
 mod transaction;
@@ -24,6 +25,12 @@ pub use postgres::{connect_postgres, run_postgres_migrations};
 pub use reader_queue::{
     OfflineQueueState, OfflineTransactionDraft, QueuedOfflineTransaction, ReaderQueueError,
     enqueue_offline_transaction, load_offline_queue,
+};
+
+pub use reader_queue_state::{
+    ReaderQueueStateError, load_ready_offline_transactions, mark_offline_transaction_in_flight,
+    record_manual_review_required, record_permanent_queue_failure, record_retryable_queue_failure,
+    recover_interrupted_offline_queue,
 };
 
 pub use reader_sqlite::{
