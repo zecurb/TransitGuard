@@ -3,9 +3,15 @@
 //! These types do not implement or claim compatibility with any real
 //! transit-card, mobile-wallet, or fare-reader protocol.
 
+pub mod fingerprint;
 pub mod presentation;
 pub mod synchronization;
 pub mod version;
+
+pub use fingerprint::{
+    SYNCHRONIZATION_FINGERPRINT_BYTES, SYNCHRONIZATION_FINGERPRINT_HEX_LENGTH,
+    SynchronizationFingerprintParseError, SynchronizationRequestFingerprint,
+};
 
 pub use presentation::{
     CredentialMedium, CredentialPresentation, CredentialPresentationDefinition,
