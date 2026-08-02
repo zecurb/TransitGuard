@@ -10,6 +10,7 @@ mod codec;
 mod config;
 mod error;
 mod postgres;
+mod reader_queue;
 mod reader_sqlite;
 mod repositories;
 mod transaction;
@@ -20,11 +21,14 @@ pub use error::PersistenceError;
 
 pub use postgres::{connect_postgres, run_postgres_migrations};
 
+pub use reader_queue::{
+    OfflineQueueState, OfflineTransactionDraft, QueuedOfflineTransaction, ReaderQueueError,
+    enqueue_offline_transaction, load_offline_queue,
+};
+
 pub use reader_sqlite::{
-    ReaderDatabaseIdentity, ReaderDatabaseState,
-    ReaderSqliteConfig, ReaderStorageError,
-    bind_reader_database, connect_reader_sqlite,
-    run_reader_sqlite_migrations,
+    ReaderDatabaseIdentity, ReaderDatabaseState, ReaderSqliteConfig, ReaderStorageError,
+    bind_reader_database, connect_reader_sqlite, run_reader_sqlite_migrations,
 };
 
 pub use repositories::{
