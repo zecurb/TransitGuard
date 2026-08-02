@@ -19,6 +19,7 @@ mod reader_sqlite;
 mod reader_sync;
 mod reader_sync_state;
 mod repositories;
+mod synchronization_ingest_record;
 mod transaction;
 
 pub use codec::PostgresValueCodec;
@@ -73,6 +74,11 @@ pub use reader_sync_state::{
 pub use repositories::{
     PostgresDomainEventRepository, PostgresFareCredentialRepository,
     PostgresReaderEquipmentRepository, PostgresTransitAccountRepository,
+};
+
+pub use synchronization_ingest_record::{
+    PreparedSynchronizationIngest, PreparedSynchronizationIngestEntry,
+    SynchronizationIngestRecordError,
 };
 
 pub use transaction::PostgresTransactionManager;
