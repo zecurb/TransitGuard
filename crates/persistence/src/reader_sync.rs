@@ -320,9 +320,19 @@ pub async fn create_synchronization_batch(
                 AND NOT EXISTS (
                     SELECT 1
                     FROM synchronization_entries AS entry
+                    INNER JOIN synchronization_batches AS batch
+                        ON batch.batch_id = entry.batch_id
+                        AND batch.reader_id = entry.reader_id
                     WHERE
                         entry.fare_transaction_id =
                             queued_transaction.fare_transaction_id
+                        AND entry.reader_id =
+                            queued_transaction.reader_id
+                        AND batch.batch_state IN (
+                            'prepared',
+                            'in_flight',
+                            'retryable_failure'
+                        )
                 )
             ORDER BY
                 queued_transaction.local_sequence_number
@@ -1112,6 +1122,132 @@ mod tests {
                     }
             ) if failed_reader == reader_id
         ));
+
+        pool.close().await;
+        remove_database(&path);
+    }
+    #[tokio::test]
+    async fn retryable_entry_can_join_new_batch_after_completed_batch() {
+        let reader_id = ReaderId::generate();
+
+        let (path, _config, pool) = open_database("partial-retry-history", reader_id).await;
+
+        enqueue(&pool, reader_id).await;
+
+        let first_batch = match create_synchronization_batch(
+            &pool,
+            reader_id,
+            DeviceProtocolVersion::CURRENT,
+            TEST_TIME + 200,
+            10,
+        )
+        .await
+        {
+            Ok(value) => value,
+
+            Err(error) => {
+                pool.close().await;
+                remove_database(&path);
+
+                panic!("first batch creation failed: {error}")
+            }
+        };
+
+        let first_entry = first_batch.entries()[0];
+
+        let completed_batch = sqlx::query(
+            r#"
+                UPDATE synchronization_batches
+                SET
+                    batch_state = 'acknowledged',
+                    updated_at_unix_milliseconds = ?
+                WHERE
+                    batch_id = ?
+                    AND reader_id = ?
+                "#,
+        )
+        .bind(TEST_TIME + 400)
+        .bind(first_batch.batch_id().to_string())
+        .bind(reader_id.to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(completed_batch.is_ok());
+
+        let retryable_transaction = sqlx::query(
+            r#"
+                UPDATE offline_transactions
+                SET
+                    queue_state = 'retryable_failure',
+                    next_retry_at_unix_milliseconds = ?,
+                    last_failure_category =
+                        'backend_retry',
+                    updated_at_unix_milliseconds = ?
+                WHERE
+                    fare_transaction_id = ?
+                    AND reader_id = ?
+                "#,
+        )
+        .bind(TEST_TIME + 500)
+        .bind(TEST_TIME + 400)
+        .bind(first_entry.transaction_id().to_string())
+        .bind(reader_id.to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(retryable_transaction.is_ok());
+
+        let second_batch = match create_synchronization_batch(
+            &pool,
+            reader_id,
+            DeviceProtocolVersion::CURRENT,
+            TEST_TIME + 500,
+            10,
+        )
+        .await
+        {
+            Ok(value) => value,
+
+            Err(error) => {
+                pool.close().await;
+                remove_database(&path);
+
+                panic!("retry batch creation failed: {error}")
+            }
+        };
+
+        assert_ne!(second_batch.batch_id(), first_batch.batch_id());
+
+        assert_eq!(second_batch.entries().len(), 1);
+
+        assert_eq!(
+            second_batch.entries()[0].transaction_id(),
+            first_entry.transaction_id()
+        );
+
+        assert_eq!(
+            second_batch.entries()[0].local_sequence_number(),
+            first_entry.local_sequence_number()
+        );
+
+        let historical_batch =
+            match load_synchronization_batch(&pool, reader_id, first_batch.batch_id()).await {
+                Ok(value) => value,
+
+                Err(error) => {
+                    pool.close().await;
+                    remove_database(&path);
+
+                    panic!("historical batch load failed: {error}")
+                }
+            };
+
+        assert_eq!(historical_batch.entries(), first_batch.entries());
+
+        assert_eq!(
+            historical_batch.state(),
+            SynchronizationBatchState::Acknowledged
+        );
 
         pool.close().await;
         remove_database(&path);
