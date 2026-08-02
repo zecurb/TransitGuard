@@ -1380,6 +1380,12 @@ version = "0.1.0"
 [[package]]
 name = "transitguard-device-protocol"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "transitguard-domain",
+]
 
 [[package]]
 name = "transitguard-domain"
@@ -1415,6 +1421,14 @@ dependencies = [
 [[package]]
 name = "transitguard-reader-simulator"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "transitguard-device-protocol",
+ "transitguard-domain",
+ "transitguard-fare-engine",
+]
 
 [[package]]
 name = "transitguard-reconciliation"
