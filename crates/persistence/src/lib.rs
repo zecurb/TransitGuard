@@ -10,6 +10,7 @@ mod codec;
 mod config;
 mod error;
 mod postgres;
+mod reader_acknowledgement;
 mod reader_queue;
 mod reader_queue_state;
 mod reader_sqlite;
@@ -23,6 +24,12 @@ pub use config::PostgresConfig;
 pub use error::PersistenceError;
 
 pub use postgres::{connect_postgres, run_postgres_migrations};
+
+pub use reader_acknowledgement::{
+    ReaderAcknowledgementError, StoredSynchronizationAcknowledgement,
+    SynchronizationAcknowledgement, SynchronizationAcknowledgementEntry,
+    SynchronizationEntryResolution, store_synchronization_acknowledgement,
+};
 
 pub use reader_queue::{
     OfflineQueueState, OfflineTransactionDraft, QueuedOfflineTransaction, ReaderQueueError,
