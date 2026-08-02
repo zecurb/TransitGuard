@@ -4,6 +4,7 @@
 //! transit-card, mobile-wallet, or fare-reader protocol.
 
 pub mod fingerprint;
+pub mod payload_fingerprint;
 pub mod presentation;
 pub mod synchronization;
 pub mod version;
@@ -11,6 +12,10 @@ pub mod version;
 pub use fingerprint::{
     SYNCHRONIZATION_FINGERPRINT_BYTES, SYNCHRONIZATION_FINGERPRINT_HEX_LENGTH,
     SynchronizationFingerprintParseError, SynchronizationRequestFingerprint,
+};
+
+pub use payload_fingerprint::{
+    SynchronizationPayloadFingerprint, SynchronizationPayloadFingerprintParseError,
 };
 
 pub use presentation::{
