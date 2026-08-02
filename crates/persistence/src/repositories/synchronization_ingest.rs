@@ -1,6 +1,9 @@
 use sqlx::{FromRow, PgPool, Postgres, Transaction, types::Json};
 use thiserror::Error;
-use transitguard_device_protocol::{SynchronizationEntryOutcome, SynchronizationFailureCategory};
+use transitguard_device_protocol::{
+    SynchronizationBatchAcknowledgement, SynchronizationEntryOutcome,
+    SynchronizationFailureCategory,
+};
 use transitguard_domain::{FareTransactionId, SynchronizationBatchId};
 use uuid::Uuid;
 
@@ -13,8 +16,13 @@ const ENTRY_ENTITY: &str = "synchronization ingest entry";
 const FIND_BATCH_SQL: &str = r#"
 SELECT
     reader_id,
-    request_fingerprint,
-    acknowledgement_fingerprint
+    request_fingerprint
+FROM synchronization_ingest_batches
+WHERE batch_id = $1
+"#;
+
+const LOAD_ACKNOWLEDGEMENT_SQL: &str = r#"
+SELECT canonical_acknowledgement_json
 FROM synchronization_ingest_batches
 WHERE batch_id = $1
 "#;
@@ -176,6 +184,41 @@ impl PostgresSynchronizationIngestRepository {
         &self.pool
     }
 
+    /// Loads the original committed acknowledgement for a batch.
+    pub async fn load_acknowledgement(
+        &self,
+        batch_id: SynchronizationBatchId,
+    ) -> Result<Option<SynchronizationBatchAcknowledgement>, SynchronizationIngestPersistenceError>
+    {
+        let stored = sqlx::query_scalar::<_, Json<serde_json::Value>>(LOAD_ACKNOWLEDGEMENT_SQL)
+            .bind(batch_id.into_uuid())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|source| {
+                SynchronizationIngestPersistenceError::database(
+                    "load synchronization acknowledgement",
+                    source,
+                )
+            })?;
+
+        match stored {
+            Some(Json(value)) => {
+                let acknowledgement = serde_json::from_value(value).map_err(|source| {
+                    SynchronizationIngestPersistenceError::Persistence(
+                        PersistenceError::serialization(
+                            "decode synchronization acknowledgement",
+                            source,
+                        ),
+                    )
+                })?;
+
+                Ok(Some(acknowledgement))
+            }
+
+            None => Ok(None),
+        }
+    }
+
     /// Atomically stores one prepared synchronization batch.
     ///
     /// An exact durable replay succeeds without creating duplicate
@@ -224,7 +267,6 @@ impl PostgresSynchronizationIngestRepository {
 struct ExistingBatchRow {
     reader_id: Uuid,
     request_fingerprint: String,
-    acknowledgement_fingerprint: String,
 }
 
 #[derive(Debug, FromRow)]
@@ -256,8 +298,7 @@ fn validate_existing_batch(
     ingest: &PreparedSynchronizationIngest,
 ) -> Result<SynchronizationIngestDisposition, SynchronizationIngestPersistenceError> {
     let matches = existing.reader_id == ingest.reader_id().into_uuid()
-        && existing.request_fingerprint == ingest.request_fingerprint().to_string()
-        && existing.acknowledgement_fingerprint == ingest.acknowledgement_fingerprint().to_string();
+        && existing.request_fingerprint == ingest.request_fingerprint().to_string();
 
     if matches {
         Ok(SynchronizationIngestDisposition::Replayed)

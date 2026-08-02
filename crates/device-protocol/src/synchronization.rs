@@ -936,6 +936,13 @@ impl SynchronizationBatchAcknowledgement {
         self.replayed
     }
 
+    /// Returns this acknowledgement with the replay indicator changed.
+    #[must_use]
+    pub fn with_replayed(mut self, replayed: bool) -> Self {
+        self.replayed = replayed;
+        self
+    }
+
     /// Returns the ordered acknowledgement entries.
     #[must_use]
     pub fn entries(&self) -> &[SynchronizationAcknowledgementEntry] {

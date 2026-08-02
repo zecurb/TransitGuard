@@ -157,7 +157,10 @@ fn request(
     }
 }
 
-fn acknowledgement(request: &SynchronizationBatchRequest) -> SynchronizationBatchAcknowledgement {
+fn acknowledgement(
+    request: &SynchronizationBatchRequest,
+    received_at_unix_milliseconds: i64,
+) -> SynchronizationBatchAcknowledgement {
     let accepted = match SynchronizationAcknowledgementEntry::new(
         request.entries()[0].transaction_id(),
         request.entries()[0].local_sequence_number(),
@@ -177,7 +180,7 @@ fn acknowledgement(request: &SynchronizationBatchRequest) -> SynchronizationBatc
         request.entries()[1].local_sequence_number(),
         SynchronizationEntryOutcome::RetryableFailure,
         Some(SynchronizationFailureCategory::BackendTemporarilyUnavailable),
-        Some(RECEIVED_AT + 1_000),
+        Some(received_at_unix_milliseconds + 1_000),
     ) {
         Ok(entry) => entry,
 
@@ -193,7 +196,7 @@ fn acknowledgement(request: &SynchronizationBatchRequest) -> SynchronizationBatc
         batch_id: request.batch_id(),
         first_local_sequence_number: request.first_local_sequence_number(),
         last_local_sequence_number: request.last_local_sequence_number(),
-        received_at_unix_milliseconds: RECEIVED_AT,
+        received_at_unix_milliseconds,
         replayed: false,
         entries: vec![accepted, retryable],
     }) {
@@ -205,8 +208,11 @@ fn acknowledgement(request: &SynchronizationBatchRequest) -> SynchronizationBatc
     }
 }
 
-fn prepare(request: &SynchronizationBatchRequest) -> PreparedSynchronizationIngest {
-    let acknowledgement = acknowledgement(request);
+fn prepare(
+    request: &SynchronizationBatchRequest,
+    received_at_unix_milliseconds: i64,
+) -> PreparedSynchronizationIngest {
+    let acknowledgement = acknowledgement(request, received_at_unix_milliseconds);
 
     match PreparedSynchronizationIngest::prepare(request, &acknowledgement) {
         Ok(prepared) => prepared,
@@ -234,7 +240,7 @@ async fn synchronization_ingest_is_atomic_and_idempotent() {
 
     let initial_request = request(reader_id, batch_id, transaction_ids, [10, 12], "initial");
 
-    let initial_ingest = prepare(&initial_request);
+    let initial_ingest = prepare(&initial_request, RECEIVED_AT);
 
     let repository = PostgresSynchronizationIngestRepository::new(pool.clone());
 
@@ -245,12 +251,41 @@ async fn synchronization_ingest_is_atomic_and_idempotent() {
         Ok(SynchronizationIngestDisposition::Stored)
     ));
 
-    let replay = repository.store(&initial_ingest).await;
+    let replay_ingest = prepare(&initial_request, RECEIVED_AT + 10_000);
+
+    let replay = repository.store(&replay_ingest).await;
 
     assert!(matches!(
         replay,
         Ok(SynchronizationIngestDisposition::Replayed)
     ));
+
+    let stored_acknowledgement = match repository.load_acknowledgement(batch_id).await {
+        Ok(Some(acknowledgement)) => acknowledgement,
+
+        Ok(None) => {
+            pool.close().await;
+            panic!("stored acknowledgement was not found")
+        }
+
+        Err(error) => {
+            pool.close().await;
+            panic!("stored acknowledgement load failed: {error}")
+        }
+    };
+
+    assert_eq!(
+        stored_acknowledgement.received_at_unix_milliseconds(),
+        RECEIVED_AT
+    );
+
+    assert!(!stored_acknowledgement.replayed());
+
+    let replay_response = stored_acknowledgement.with_replayed(true);
+
+    assert!(replay_response.replayed());
+
+    assert_eq!(replay_response.received_at_unix_milliseconds(), RECEIVED_AT);
 
     let batch_count = match sqlx::query_scalar::<_, i64>(
         r#"
@@ -323,7 +358,7 @@ async fn synchronization_ingest_is_atomic_and_idempotent() {
         "conflicting-batch",
     );
 
-    let conflicting_batch = prepare(&conflicting_batch_request);
+    let conflicting_batch = prepare(&conflicting_batch_request, RECEIVED_AT);
 
     let batch_conflict = repository.store(&conflicting_batch).await;
 
@@ -347,7 +382,7 @@ async fn synchronization_ingest_is_atomic_and_idempotent() {
         "conflicting-transaction",
     );
 
-    let transaction_conflict = prepare(&transaction_conflict_request);
+    let transaction_conflict = prepare(&transaction_conflict_request, RECEIVED_AT);
 
     let transaction_result = repository.store(&transaction_conflict).await;
 
