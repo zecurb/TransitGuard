@@ -7,6 +7,27 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+axum = "0.8"
+serde.workspace = true
+sqlx.workspace = true
+tokio = {
+    version = "1",
+    features = [
+        "macros",
+        "net",
+        "rt-multi-thread",
+    ],
+}
+transitguard-persistence = {
+    path = "../../crates/persistence",
+}
+
+[dev-dependencies]
+serde_json.workspace = true
+tower = {
+    version = "0.5",
+    features = ["util"],
+}
 
 [lints]
 workspace = true
