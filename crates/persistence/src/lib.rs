@@ -73,7 +73,9 @@ pub use reader_sync_state::{
 
 pub use repositories::{
     PostgresDomainEventRepository, PostgresFareCredentialRepository,
-    PostgresReaderEquipmentRepository, PostgresTransitAccountRepository,
+    PostgresReaderEquipmentRepository, PostgresSynchronizationIngestRepository,
+    PostgresTransitAccountRepository, SynchronizationIngestDisposition,
+    SynchronizationIngestPersistenceError,
 };
 
 pub use synchronization_ingest_record::{
