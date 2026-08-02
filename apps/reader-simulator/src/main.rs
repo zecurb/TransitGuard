@@ -7,9 +7,7 @@ fn main() -> ExitCode {
         Ok(report) => report,
 
         Err(error) => {
-            eprintln!(
-                "failed to run TransitGuard reader demonstration: {error}"
-            );
+            eprintln!("failed to run TransitGuard reader demonstration: {error}");
 
             return ExitCode::FAILURE;
         }
@@ -19,9 +17,7 @@ fn main() -> ExitCode {
         Ok(output) => output,
 
         Err(error) => {
-            eprintln!(
-                "failed to serialize TransitGuard reader demonstration: {error}"
-            );
+            eprintln!("failed to serialize TransitGuard reader demonstration: {error}");
 
             return ExitCode::FAILURE;
         }

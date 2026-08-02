@@ -1,7 +1,5 @@
 use thiserror::Error;
-use transitguard_device_protocol::{
-    CredentialMedium, DeviceProtocolVersion, ProtocolZoneId,
-};
+use transitguard_device_protocol::{CredentialMedium, DeviceProtocolVersion, ProtocolZoneId};
 use transitguard_domain::{
     Currency, EligibilityClassification, EventTime, FareCredentialId, FarePolicyId,
     FarePolicyVersion, Money, ReaderId,
@@ -58,53 +56,28 @@ fn demo_actions() -> Result<[ScenarioAction; 6], DemoScenarioError> {
 
     Ok([
         ScenarioAction::ProcessFare {
-            presentation_input: presentation_input(
-                BASE_TIME_MILLISECONDS,
-                1,
-                3,
-            )?,
+            presentation_input: presentation_input(BASE_TIME_MILLISECONDS, 1, 3)?,
             fare_context: Box::new(online_context()),
         },
-        ScenarioAction::SetConnectivity(
-            ReaderConnectivity::Disconnected,
-        ),
+        ScenarioAction::SetConnectivity(ReaderConnectivity::Disconnected),
         ScenarioAction::ProcessFare {
-            presentation_input: presentation_input(
-                offline_time,
-                1,
-                3,
-            )?,
+            presentation_input: presentation_input(offline_time, 1, 3)?,
             fare_context: Box::new(online_context()),
         },
         ScenarioAction::ProcessFare {
-            presentation_input: presentation_input(
-                offline_time,
-                1,
-                3,
-            )?,
-            fare_context: Box::new(
-                offline_context(offline_time)?,
-            ),
+            presentation_input: presentation_input(offline_time, 1, 3)?,
+            fare_context: Box::new(offline_context(offline_time)?),
         },
-        ScenarioAction::SetConnectivity(
-            ReaderConnectivity::Connected,
-        ),
+        ScenarioAction::SetConnectivity(ReaderConnectivity::Connected),
         ScenarioAction::ProcessFare {
-            presentation_input: presentation_input(
-                BASE_TIME_MILLISECONDS + 2_000,
-                2,
-                2,
-            )?,
+            presentation_input: presentation_input(BASE_TIME_MILLISECONDS + 2_000, 2, 2)?,
             fare_context: Box::new(online_context()),
         },
     ])
 }
 
 fn demo_policy() -> Result<FarePolicy, DemoScenarioError> {
-    let version = checked(
-        FarePolicyVersion::new(1),
-        "fare policy version",
-    )?;
+    let version = checked(FarePolicyVersion::new(1), "fare policy version")?;
 
     let transfer_window = checked(
         TransferWindow::from_milliseconds(5_400_000),
@@ -116,29 +89,13 @@ fn demo_policy() -> Result<FarePolicy, DemoScenarioError> {
             id: FarePolicyId::generate(),
             version,
             currency: Currency::Usd,
-            base_fare: Money::from_minor_units(
-                250,
-                Currency::Usd,
-            ),
-            zone_surcharge: Money::from_minor_units(
-                75,
-                Currency::Usd,
-            ),
+            base_fare: Money::from_minor_units(250, Currency::Usd),
+            zone_surcharge: Money::from_minor_units(75, Currency::Usd),
             transfer_window,
-            transfer_discount: Money::from_minor_units(
-                250,
-                Currency::Usd,
-            ),
-            daily_cap: Money::from_minor_units(
-                750,
-                Currency::Usd,
-            ),
-            weekly_cap: Money::from_minor_units(
-                3_000,
-                Currency::Usd,
-            ),
-            eligibility_discounts:
-                EligibilityDiscounts::none(),
+            transfer_discount: Money::from_minor_units(250, Currency::Usd),
+            daily_cap: Money::from_minor_units(750, Currency::Usd),
+            weekly_cap: Money::from_minor_units(3_000, Currency::Usd),
+            eligibility_discounts: EligibilityDiscounts::none(),
         }),
         "fare policy",
     )
@@ -168,11 +125,8 @@ fn online_context() -> ReaderFareContext {
     )
 }
 
-fn offline_context(
-    event_time_milliseconds: i64,
-) -> Result<ReaderFareContext, DemoScenarioError> {
-    let cached_at =
-        event_time(event_time_milliseconds - 500)?;
+fn offline_context(event_time_milliseconds: i64) -> Result<ReaderFareContext, DemoScenarioError> {
+    let cached_at = event_time(event_time_milliseconds - 500)?;
 
     Ok(ReaderFareContext::offline(
         EligibilityClassification::Standard,
@@ -185,49 +139,29 @@ fn offline_context(
             maximum_policy_age_milliseconds: 1_000,
             revocation_data_cached_at: cached_at,
             maximum_revocation_age_milliseconds: 1_000,
-            provisional_charge_limit:
-                Money::from_minor_units(
-                    500,
-                    Currency::Usd,
-                ),
+            provisional_charge_limit: Money::from_minor_units(500, Currency::Usd),
         },
     ))
 }
 
-fn event_time(
-    milliseconds: i64,
-) -> Result<EventTime, DemoScenarioError> {
+fn event_time(milliseconds: i64) -> Result<EventTime, DemoScenarioError> {
     checked(
         EventTime::from_unix_milliseconds(milliseconds),
         "event time",
     )
 }
 
-fn protocol_zone(
-    value: u16,
-) -> Result<ProtocolZoneId, DemoScenarioError> {
-    checked(
-        ProtocolZoneId::new(value),
-        "protocol zone",
-    )
+fn protocol_zone(value: u16) -> Result<ProtocolZoneId, DemoScenarioError> {
+    checked(ProtocolZoneId::new(value), "protocol zone")
 }
 
-fn checked<T, E>(
-    result: Result<T, E>,
-    field: &'static str,
-) -> Result<T, DemoScenarioError> {
-    result.map_err(|_| {
-        DemoScenarioError::InvalidStaticConfiguration {
-            field,
-        }
-    })
+fn checked<T, E>(result: Result<T, E>, field: &'static str) -> Result<T, DemoScenarioError> {
+    result.map_err(|_| DemoScenarioError::InvalidStaticConfiguration { field })
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ScenarioFailureCategory, ScenarioStepResult,
-    };
+    use crate::{ScenarioFailureCategory, ScenarioStepResult};
 
     use super::run_demo_scenario;
 
@@ -236,40 +170,27 @@ mod tests {
         let first = run_demo_scenario();
         let second = run_demo_scenario();
 
-        let (Ok(first), Ok(second)) = (first, second)
-        else {
-            panic!(
-                "built-in demonstration must be valid"
-            );
+        let (Ok(first), Ok(second)) = (first, second) else {
+            panic!("built-in demonstration must be valid");
         };
 
         assert_eq!(first, second);
         assert_eq!(first.steps.len(), 6);
 
-        let Some(failed_offline_step) =
-            first.steps.get(2)
-        else {
-            panic!(
-                "offline failure step must exist"
-            );
+        let Some(failed_offline_step) = first.steps.get(2) else {
+            panic!("offline failure step must exist");
         };
 
         assert_eq!(
             failed_offline_step.result,
             ScenarioStepResult::Failed {
-                category:
-                    ScenarioFailureCategory::
-                        MissingOfflineContext,
+                category: ScenarioFailureCategory::MissingOfflineContext,
             }
         );
 
-        assert_eq!(
-            failed_offline_step.next_local_sequence,
-            2
-        );
+        assert_eq!(failed_offline_step.next_local_sequence, 2);
 
-        let Some(final_step) = first.steps.last()
-        else {
+        let Some(final_step) = first.steps.last() else {
             panic!("final demonstration step must exist");
         };
 
