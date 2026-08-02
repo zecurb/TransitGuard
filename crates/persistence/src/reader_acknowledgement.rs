@@ -1147,6 +1147,96 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn acknowledgement_constraints_require_failure_metadata() {
+        let reader_id = ReaderId::generate();
+
+        let (path, pool) = open_database("failure-metadata-constraints", reader_id).await;
+
+        let batch = submitted_batch(&pool, reader_id, 2).await;
+
+        let value = acknowledgement(
+            &batch,
+            vec![
+                SynchronizationEntryResolution::RetryableFailure {
+                    failure_category: String::from("backend_timeout"),
+                    retry_at_unix_milliseconds: TEST_TIME + 1_000,
+                },
+                SynchronizationEntryResolution::PermanentFailure {
+                    failure_category: String::from("invalid_envelope"),
+                },
+            ],
+        );
+
+        let stored = store_synchronization_acknowledgement(&pool, &value).await;
+
+        assert!(stored.is_ok());
+
+        let retryable_without_category = sqlx::query(
+            r#"
+            UPDATE synchronization_acknowledgement_entries
+            SET failure_category = NULL
+            WHERE
+                batch_id = ?
+                AND entry_position = 0
+            "#,
+        )
+        .bind(batch.batch_id().to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(retryable_without_category.is_err());
+
+        let retryable_without_time = sqlx::query(
+            r#"
+            UPDATE synchronization_acknowledgement_entries
+            SET retry_at_unix_milliseconds = NULL
+            WHERE
+                batch_id = ?
+                AND entry_position = 0
+            "#,
+        )
+        .bind(batch.batch_id().to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(retryable_without_time.is_err());
+
+        let permanent_without_category = sqlx::query(
+            r#"
+            UPDATE synchronization_acknowledgement_entries
+            SET failure_category = NULL
+            WHERE
+                batch_id = ?
+                AND entry_position = 1
+            "#,
+        )
+        .bind(batch.batch_id().to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(permanent_without_category.is_err());
+
+        let permanent_with_retry_time = sqlx::query(
+            r#"
+            UPDATE synchronization_acknowledgement_entries
+            SET retry_at_unix_milliseconds = ?
+            WHERE
+                batch_id = ?
+                AND entry_position = 1
+            "#,
+        )
+        .bind(TEST_TIME + 2_000)
+        .bind(batch.batch_id().to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(permanent_with_retry_time.is_err());
+
+        pool.close().await;
+        remove_database(&path);
+    }
+
+    #[tokio::test]
     async fn protocol_mismatch_is_rejected_before_storage() {
         let reader_id = ReaderId::generate();
 
