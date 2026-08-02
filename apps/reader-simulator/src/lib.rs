@@ -3,8 +3,11 @@
 //! The simulator uses only project-owned identities, credential formats, and
 //! protocol messages.
 
+pub mod demo;
 pub mod fare_processing;
 pub mod scenario;
+
+pub use demo::{DemoScenarioError, run_demo_scenario};
 
 pub use fare_processing::{
     ReaderFareContext, ReaderFareEvaluation, ReaderFareProcessingError, ReaderTapDecision,
