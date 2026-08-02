@@ -7,6 +7,9 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+serde.workspace = true
+thiserror.workspace = true
+transitguard-domain = { path = "../domain" }
 
 [lints]
 workspace = true

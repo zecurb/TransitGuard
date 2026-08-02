@@ -1393,6 +1393,11 @@ dependencies = [
 [[package]]
 name = "transitguard-fare-engine"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "transitguard-domain",
+]
 
 [[package]]
 name = "transitguard-persistence"

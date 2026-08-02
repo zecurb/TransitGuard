@@ -27,9 +27,9 @@ pub use equipment::{
 };
 
 pub use identifier::{
-    DomainEventId, EquipmentKeyId, FareCredentialId, FareTransactionId, IdentifierError, JourneyId,
-    ReaderId, RiderId, SynchronizationBatchId, TransitAccountId, TransitProductId,
-    TransitProductInstanceId,
+    DomainEventId, EquipmentKeyId, FareCredentialId, FarePolicyId, FareTransactionId,
+    IdentifierError, JourneyId, ReaderId, RiderId, SynchronizationBatchId, TransitAccountId,
+    TransitProductId, TransitProductInstanceId,
 };
 
 pub use money::{Currency, Money, MoneyError, MoneyOperation};
