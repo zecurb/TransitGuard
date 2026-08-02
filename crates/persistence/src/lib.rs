@@ -11,6 +11,7 @@ mod config;
 mod error;
 mod postgres;
 mod reader_acknowledgement;
+mod reader_acknowledgement_application;
 mod reader_queue;
 mod reader_queue_state;
 mod reader_sqlite;
@@ -29,6 +30,11 @@ pub use reader_acknowledgement::{
     ReaderAcknowledgementError, StoredSynchronizationAcknowledgement,
     SynchronizationAcknowledgement, SynchronizationAcknowledgementEntry,
     SynchronizationEntryResolution, store_synchronization_acknowledgement,
+};
+
+pub use reader_acknowledgement_application::{
+    ReaderAcknowledgementApplicationError, SynchronizationAcknowledgementApplication,
+    apply_synchronization_acknowledgement,
 };
 
 pub use reader_queue::{
