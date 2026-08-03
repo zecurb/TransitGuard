@@ -10,6 +10,7 @@ repository.workspace = true
 axum = "0.8"
 serde.workspace = true
 sqlx.workspace = true
+thiserror.workspace = true
 tokio = {
     version = "1",
     features = [
@@ -18,11 +19,20 @@ tokio = {
         "rt-multi-thread",
     ],
 }
+transitguard-application = {
+    path = "../../crates/application",
+}
+transitguard-device-protocol = {
+    path = "../../crates/device-protocol",
+}
 transitguard-persistence = {
     path = "../../crates/persistence",
 }
 
 [dev-dependencies]
+transitguard-domain = {
+    path = "../../crates/domain",
+}
 serde_json.workspace = true
 tower = {
     version = "0.5",

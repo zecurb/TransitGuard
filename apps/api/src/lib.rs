@@ -1,3 +1,7 @@
+pub mod synchronization_service;
+
+pub use synchronization_service::{SynchronizationService, SynchronizationServiceError};
+
 use axum::{
     Json, Router,
     extract::State,
