@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, State},
+    extract::{DefaultBodyLimit, State, rejection::JsonRejection},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -171,8 +171,16 @@ async fn readiness(State(state): State<ApiState>) -> Response {
 async fn submit_synchronization_batch(
     State(state): State<ApiState>,
     headers: HeaderMap,
-    Json(request): Json<SynchronizationBatchRequest>,
+    payload: Result<Json<SynchronizationBatchRequest>, JsonRejection>,
 ) -> Response {
+    let Json(request) = match payload {
+        Ok(payload) => payload,
+
+        Err(rejection) => {
+            return json_rejection_response(rejection);
+        }
+    };
+
     if let Err(error) = validate_transport_headers(&headers, &request) {
         return error.into_response();
     }
@@ -198,6 +206,42 @@ async fn submit_synchronization_batch(
 
         Err(error) => service_error_response(error),
     }
+}
+
+fn json_rejection_response(rejection: JsonRejection) -> Response {
+    let (status, category, message) = match rejection.status() {
+        StatusCode::BAD_REQUEST => (
+            StatusCode::BAD_REQUEST,
+            SynchronizationFailureCategory::BackendValidationFailure,
+            "request body contains malformed JSON",
+        ),
+
+        StatusCode::PAYLOAD_TOO_LARGE => (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            SynchronizationFailureCategory::PayloadTooLarge,
+            "synchronization request body exceeds the configured limit",
+        ),
+
+        StatusCode::UNSUPPORTED_MEDIA_TYPE => (
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            SynchronizationFailureCategory::BackendValidationFailure,
+            "content type must be application/json",
+        ),
+
+        StatusCode::UNPROCESSABLE_ENTITY => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            SynchronizationFailureCategory::BackendValidationFailure,
+            "synchronization request body failed validation",
+        ),
+
+        _ => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            SynchronizationFailureCategory::BackendValidationFailure,
+            "synchronization request body could not be processed",
+        ),
+    };
+
+    api_error_response(status, category.as_str(), message)
 }
 
 fn validate_transport_headers(
@@ -303,15 +347,17 @@ mod tests {
     use axum::{
         body::{Body, to_bytes},
         http::{HeaderMap, HeaderValue, Method, Request, StatusCode, Uri},
+        response::Response,
     };
     use serde_json::Value;
     use sqlx::postgres::PgPoolOptions;
     use tower::ServiceExt;
     use transitguard_device_protocol::{
         CanonicalTransactionEnvelope, DeviceProtocolVersion, IDEMPOTENCY_KEY_HEADER,
-        PROTOCOL_VERSION_HEADER, ProtocolEnvironmentId, ReaderSoftwareVersion,
-        SYNCHRONIZATION_BATCH_ENDPOINT, SynchronizationBatchRequest,
-        SynchronizationBatchRequestDefinition, SynchronizationRequestEntry,
+        MAX_SYNCHRONIZATION_REQUEST_BYTES, PROTOCOL_VERSION_HEADER, ProtocolEnvironmentId,
+        ReaderSoftwareVersion, SYNCHRONIZATION_BATCH_ENDPOINT, SynchronizationBatchRequest,
+        SynchronizationBatchRequestDefinition, SynchronizationFailureCategory,
+        SynchronizationRequestEntry,
     };
     use transitguard_domain::{
         FareTransactionId, LocalSequenceNumber, ReaderId, SynchronizationBatchId,
@@ -596,5 +642,167 @@ mod tests {
             validate_transport_headers(&headers, &request,),
             Err(TransportValidationError::InvalidProtocolVersion)
         );
+    }
+
+    async fn send_raw_synchronization_request(content_type: &str, body: Body) -> Response {
+        let request = match Request::builder()
+            .method(Method::POST)
+            .uri(SYNCHRONIZATION_BATCH_ENDPOINT)
+            .header("content-type", content_type)
+            .body(body)
+        {
+            Ok(request) => request,
+
+            Err(error) => {
+                panic!(
+                    "HTTP request creation failed: \
+                     {error}"
+                )
+            }
+        };
+
+        match build_router(test_state()).oneshot(request).await {
+            Ok(response) => response,
+
+            Err(error) => {
+                panic!(
+                    "synchronization request failed: \
+                     {error}"
+                )
+            }
+        }
+    }
+
+    async fn assert_stable_error_response(
+        response: Response,
+        expected_status: StatusCode,
+        expected_category: &str,
+        expected_error: &str,
+    ) {
+        assert_eq!(response.status(), expected_status);
+
+        let body = match to_bytes(response.into_body(), 4_096).await {
+            Ok(body) => body,
+
+            Err(error) => {
+                panic!(
+                    "error response body read failed: \
+                     {error}"
+                )
+            }
+        };
+
+        let payload = match serde_json::from_slice::<Value>(&body) {
+            Ok(payload) => payload,
+
+            Err(error) => {
+                panic!(
+                    "error response JSON decode \
+                         failed: {error}"
+                )
+            }
+        };
+
+        assert_eq!(
+            payload.get("service").and_then(Value::as_str),
+            Some("transitguard-api")
+        );
+
+        assert_eq!(
+            payload.get("category").and_then(Value::as_str),
+            Some(expected_category)
+        );
+
+        assert_eq!(
+            payload.get("error").and_then(Value::as_str),
+            Some(expected_error)
+        );
+    }
+
+    #[tokio::test]
+    async fn malformed_json_returns_stable_bad_request() {
+        let response = send_raw_synchronization_request("application/json", Body::from("{")).await;
+
+        assert_stable_error_response(
+            response,
+            StatusCode::BAD_REQUEST,
+            SynchronizationFailureCategory::BackendValidationFailure.as_str(),
+            "request body contains malformed JSON",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn wrong_media_type_returns_stable_error() {
+        let response = send_raw_synchronization_request("text/plain", Body::from("{}")).await;
+
+        assert_stable_error_response(
+            response,
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            SynchronizationFailureCategory::BackendValidationFailure.as_str(),
+            "content type must be application/json",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn oversized_json_returns_stable_error() {
+        let oversized_body = vec![b' '; MAX_SYNCHRONIZATION_REQUEST_BYTES + 1];
+
+        let response =
+            send_raw_synchronization_request("application/json", Body::from(oversized_body)).await;
+
+        assert_stable_error_response(
+            response,
+            StatusCode::PAYLOAD_TOO_LARGE,
+            SynchronizationFailureCategory::PayloadTooLarge.as_str(),
+            "synchronization request body exceeds the configured limit",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn invalid_protocol_json_returns_stable_error() {
+        let mut payload = match serde_json::to_value(protocol_request()) {
+            Ok(payload) => payload,
+
+            Err(error) => {
+                panic!(
+                    "request conversion failed: \
+                         {error}"
+                )
+            }
+        };
+
+        let object = match payload.as_object_mut() {
+            Some(object) => object,
+
+            None => {
+                panic!("serialized request was not an object")
+            }
+        };
+
+        object.insert(String::from("entries"), Value::Array(Vec::new()));
+
+        let body = match serde_json::to_vec(&payload) {
+            Ok(body) => body,
+
+            Err(error) => {
+                panic!(
+                    "request serialization failed: \
+                     {error}"
+                )
+            }
+        };
+
+        let response = send_raw_synchronization_request("application/json", Body::from(body)).await;
+
+        assert_stable_error_response(
+            response,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            SynchronizationFailureCategory::BackendValidationFailure.as_str(),
+            "synchronization request body failed validation",
+        )
+        .await;
     }
 }
