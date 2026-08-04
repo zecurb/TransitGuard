@@ -1,9 +1,10 @@
 use std::{env, error::Error};
 
-use transitguard_api::{ApiState, build_router};
+use transitguard_api::{ApiState, SynchronizationService, build_router};
+use transitguard_device_protocol::ProtocolEnvironmentId;
 use transitguard_persistence::{
-    PostgresConfig, PostgresSynchronizationIngestRepository, connect_postgres,
-    run_postgres_migrations,
+    PostgresConfig, PostgresReaderEquipmentRepository, PostgresSynchronizationIngestRepository,
+    connect_postgres, run_postgres_migrations,
 };
 
 #[tokio::main]
@@ -16,9 +17,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     run_postgres_migrations(&pool).await?;
 
-    let repository = PostgresSynchronizationIngestRepository::new(pool);
+    let ingest_repository = PostgresSynchronizationIngestRepository::new(pool.clone());
 
-    let state = ApiState::new(repository);
+    let reader_repository = PostgresReaderEquipmentRepository::new(pool);
+
+    let environment =
+        env::var("TRANSITGUARD_ENVIRONMENT").unwrap_or_else(|_| String::from("development"));
+
+    let environment_id = ProtocolEnvironmentId::new(environment)?;
+
+    let synchronization_service =
+        SynchronizationService::new(reader_repository, ingest_repository.clone(), environment_id);
+
+    let state = ApiState::new(ingest_repository, synchronization_service);
 
     let bind_address =
         env::var("TRANSITGUARD_API_BIND").unwrap_or_else(|_| String::from("127.0.0.1:8080"));
