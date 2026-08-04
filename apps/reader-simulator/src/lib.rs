@@ -6,8 +6,11 @@
 pub mod demo;
 pub mod fare_processing;
 pub mod scenario;
+pub mod synchronization_transport;
 
 pub use demo::{DemoScenarioError, run_demo_scenario};
+
+pub use synchronization_transport::{SynchronizationHttpClient, SynchronizationHttpClientError};
 
 pub use fare_processing::{
     ReaderFareContext, ReaderFareEvaluation, ReaderFareProcessingError, ReaderTapDecision,
