@@ -19,9 +19,6 @@ tokio = {
         "rt-multi-thread",
     ],
 }
-transitguard-application = {
-    path = "../../crates/application",
-}
 transitguard-device-protocol = {
     path = "../../crates/device-protocol",
 }

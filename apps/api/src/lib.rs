@@ -316,9 +316,7 @@ mod tests {
     use transitguard_domain::{
         FareTransactionId, LocalSequenceNumber, ReaderId, SynchronizationBatchId,
     };
-    use transitguard_persistence::{
-        PostgresReaderEquipmentRepository, PostgresSynchronizationIngestRepository,
-    };
+    use transitguard_persistence::PostgresSynchronizationIngestRepository;
 
     use super::{
         ApiState, LIVENESS_PATH, SynchronizationService, TransportValidationError, build_router,
@@ -345,8 +343,6 @@ mod tests {
 
         let ingest_repository = PostgresSynchronizationIngestRepository::new(pool.clone());
 
-        let reader_repository = PostgresReaderEquipmentRepository::new(pool);
-
         let environment_id = match ProtocolEnvironmentId::new("development") {
             Ok(environment_id) => environment_id,
 
@@ -355,11 +351,7 @@ mod tests {
             }
         };
 
-        let service = SynchronizationService::new(
-            reader_repository,
-            ingest_repository.clone(),
-            environment_id,
-        );
+        let service = SynchronizationService::new(ingest_repository.clone(), environment_id);
 
         ApiState::new(ingest_repository, service)
     }

@@ -1,5 +1,4 @@
 use thiserror::Error;
-use transitguard_application::ReaderEquipmentRepository;
 use transitguard_device_protocol::{
     DeviceProtocolVersion, ProtocolEnvironmentId, SynchronizationAcknowledgementEntry,
     SynchronizationBatchAcknowledgement, SynchronizationBatchAcknowledgementDefinition,
@@ -7,9 +6,8 @@ use transitguard_device_protocol::{
     SynchronizationProtocolError,
 };
 use transitguard_persistence::{
-    PostgresReaderEquipmentRepository, PostgresSynchronizationIngestRepository,
-    PreparedSynchronizationIngest, SynchronizationIngestDisposition,
-    SynchronizationIngestPersistenceError,
+    PostgresSynchronizationIngestRepository, PreparedSynchronizationIngest,
+    SynchronizationIngestDisposition, SynchronizationIngestPersistenceError,
 };
 
 /// Stable failures produced while processing a synchronization batch.
@@ -85,7 +83,6 @@ impl SynchronizationServiceError {
 /// Coordinates reader validation and atomic synchronization ingest.
 #[derive(Clone, Debug)]
 pub struct SynchronizationService {
-    reader_repository: PostgresReaderEquipmentRepository,
     ingest_repository: PostgresSynchronizationIngestRepository,
     environment_id: ProtocolEnvironmentId,
 }
@@ -94,12 +91,10 @@ impl SynchronizationService {
     /// Creates a backend synchronization service.
     #[must_use]
     pub const fn new(
-        reader_repository: PostgresReaderEquipmentRepository,
         ingest_repository: PostgresSynchronizationIngestRepository,
         environment_id: ProtocolEnvironmentId,
     ) -> Self {
         Self {
-            reader_repository,
             ingest_repository,
             environment_id,
         }
@@ -116,17 +111,6 @@ impl SynchronizationService {
         received_at_unix_milliseconds: i64,
     ) -> Result<SynchronizationBatchAcknowledgement, SynchronizationServiceError> {
         validate_request_context(request, &self.environment_id)?;
-
-        let reader = self
-            .reader_repository
-            .find_by_id(request.reader_id())
-            .await
-            .map_err(|_| SynchronizationServiceError::BackendTemporarilyUnavailable)?
-            .ok_or(SynchronizationServiceError::ReaderNotRegistered)?;
-
-        if !reader.aggregate().may_authenticate_to_backend() {
-            return Err(SynchronizationServiceError::ReaderNotOperational);
-        }
 
         let acknowledgement = build_acknowledgement(request, received_at_unix_milliseconds)?;
 
@@ -206,6 +190,14 @@ fn build_acknowledgement(
 
 fn map_ingest_error(error: SynchronizationIngestPersistenceError) -> SynchronizationServiceError {
     match error {
+        SynchronizationIngestPersistenceError::ReaderNotRegistered { .. } => {
+            SynchronizationServiceError::ReaderNotRegistered
+        }
+
+        SynchronizationIngestPersistenceError::ReaderNotOperational { .. } => {
+            SynchronizationServiceError::ReaderNotOperational
+        }
+
         SynchronizationIngestPersistenceError::BatchIdentityConflict { .. } => {
             SynchronizationServiceError::BatchIdentityConflict
         }

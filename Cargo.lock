@@ -1586,7 +1586,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tower",
- "transitguard-application",
  "transitguard-device-protocol",
  "transitguard-domain",
  "transitguard-persistence",

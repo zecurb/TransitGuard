@@ -4,7 +4,7 @@ use transitguard_device_protocol::{
     SynchronizationBatchAcknowledgement, SynchronizationEntryOutcome,
     SynchronizationFailureCategory,
 };
-use transitguard_domain::{FareTransactionId, SynchronizationBatchId};
+use transitguard_domain::{FareTransactionId, ReaderId, SynchronizationBatchId};
 use uuid::Uuid;
 
 use crate::{PersistenceError, PreparedSynchronizationIngest, PreparedSynchronizationIngestEntry};
@@ -12,6 +12,13 @@ use crate::{PersistenceError, PreparedSynchronizationIngest, PreparedSynchroniza
 const BATCH_ENTITY: &str = "synchronization ingest batch";
 const TRANSACTION_ENTITY: &str = "synchronization ingest transaction";
 const ENTRY_ENTITY: &str = "synchronization ingest entry";
+
+const VALIDATE_READER_SQL: &str = r#"
+SELECT status IN ('active', 'offline')
+FROM reader_equipment
+WHERE id = $1
+FOR SHARE
+"#;
 
 const FIND_BATCH_SQL: &str = r#"
 SELECT
@@ -132,6 +139,20 @@ pub enum SynchronizationIngestDisposition {
 /// Stable PostgreSQL synchronization-ingest failures.
 #[derive(Debug, Error)]
 pub enum SynchronizationIngestPersistenceError {
+    /// The submitted reader does not exist.
+    #[error("synchronization reader {reader_id} is not registered")]
+    ReaderNotRegistered {
+        /// Reader identity submitted by the batch.
+        reader_id: ReaderId,
+    },
+
+    /// The submitted reader cannot currently authenticate.
+    #[error("synchronization reader {reader_id} is not operational")]
+    ReaderNotOperational {
+        /// Reader identity submitted by the batch.
+        reader_id: ReaderId,
+    },
+
     /// A batch identity was reused with different content.
     #[error("synchronization batch {batch_id} conflicts with stored content")]
     BatchIdentityConflict {
@@ -232,6 +253,8 @@ impl PostgresSynchronizationIngestRepository {
             SynchronizationIngestPersistenceError::database("begin synchronization ingest", source)
         })?;
 
+        validate_reader(&mut transaction, ingest).await?;
+
         let existing_batch = find_existing_batch(&mut transaction, ingest).await?;
 
         if let Some(existing_batch) = existing_batch {
@@ -275,6 +298,36 @@ struct ExistingTransactionRow {
     reader_id: Uuid,
     local_sequence_number: i64,
     transaction_fingerprint: String,
+}
+
+async fn validate_reader(
+    transaction: &mut Transaction<'_, Postgres>,
+    ingest: &PreparedSynchronizationIngest,
+) -> Result<(), SynchronizationIngestPersistenceError> {
+    let operational = sqlx::query_scalar::<_, bool>(VALIDATE_READER_SQL)
+        .bind(ingest.reader_id().into_uuid())
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(|source| {
+            SynchronizationIngestPersistenceError::database(
+                "validate synchronization reader",
+                source,
+            )
+        })?;
+
+    match operational {
+        Some(true) => Ok(()),
+
+        Some(false) => Err(
+            SynchronizationIngestPersistenceError::ReaderNotOperational {
+                reader_id: ingest.reader_id(),
+            },
+        ),
+
+        None => Err(SynchronizationIngestPersistenceError::ReaderNotRegistered {
+            reader_id: ingest.reader_id(),
+        }),
+    }
 }
 
 async fn find_existing_batch(

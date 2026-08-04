@@ -58,7 +58,11 @@ async fn database_pool() -> PgPool {
 async fn register_reader(pool: &PgPool, reader_id: ReaderId) {
     let repository = PostgresReaderEquipmentRepository::new(pool.clone());
 
-    let reader = ReaderEquipment::new_pending(reader_id, EquipmentKeyId::generate());
+    let mut reader = ReaderEquipment::new_pending(reader_id, EquipmentKeyId::generate());
+
+    if let Err(error) = reader.activate() {
+        panic!("reader activation failed: {error}");
+    }
 
     let result = repository.save(&reader, SaveCondition::MustNotExist).await;
 
