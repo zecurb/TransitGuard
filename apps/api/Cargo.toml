@@ -25,6 +25,9 @@ transitguard-device-protocol = {
 transitguard-persistence = {
     path = "../../crates/persistence",
 }
+transitguard-telemetry = {
+    path = "../../crates/telemetry",
+}
 
 [dev-dependencies]
 transitguard-domain = {

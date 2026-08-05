@@ -18,6 +18,7 @@ use transitguard_device_protocol::{
     SynchronizationFailureCategory,
 };
 use transitguard_persistence::PostgresSynchronizationIngestRepository;
+use transitguard_telemetry::{SynchronizationTelemetry, SynchronizationTelemetrySnapshot};
 
 /// Liveness endpoint for the TransitGuard API process.
 pub const LIVENESS_PATH: &str = "/health/live";
@@ -25,23 +26,42 @@ pub const LIVENESS_PATH: &str = "/health/live";
 /// Readiness endpoint for PostgreSQL-backed API traffic.
 pub const READINESS_PATH: &str = "/health/ready";
 
+/// Structured synchronization telemetry endpoint.
+pub const SYNCHRONIZATION_HEALTH_PATH: &str = "/health/synchronization";
+
 /// Shared state available to API handlers.
 #[derive(Clone, Debug)]
 pub struct ApiState {
     synchronization_ingest_repository: PostgresSynchronizationIngestRepository,
     synchronization_service: SynchronizationService,
+    synchronization_telemetry: SynchronizationTelemetry,
 }
 
 impl ApiState {
     /// Creates shared API state.
     #[must_use]
-    pub const fn new(
+    pub fn new(
         synchronization_ingest_repository: PostgresSynchronizationIngestRepository,
         synchronization_service: SynchronizationService,
+    ) -> Self {
+        Self::with_telemetry(
+            synchronization_ingest_repository,
+            synchronization_service,
+            SynchronizationTelemetry::new(),
+        )
+    }
+
+    /// Creates shared API state with an explicit telemetry recorder.
+    #[must_use]
+    pub const fn with_telemetry(
+        synchronization_ingest_repository: PostgresSynchronizationIngestRepository,
+        synchronization_service: SynchronizationService,
+        synchronization_telemetry: SynchronizationTelemetry,
     ) -> Self {
         Self {
             synchronization_ingest_repository,
             synchronization_service,
+            synchronization_telemetry,
         }
     }
 
@@ -58,6 +78,12 @@ impl ApiState {
     pub const fn synchronization_service(&self) -> &SynchronizationService {
         &self.synchronization_service
     }
+
+    /// Returns the shared synchronization telemetry recorder.
+    #[must_use]
+    pub const fn synchronization_telemetry(&self) -> &SynchronizationTelemetry {
+        &self.synchronization_telemetry
+    }
 }
 
 /// Builds the TransitGuard API router.
@@ -65,6 +91,7 @@ pub fn build_router(state: ApiState) -> Router {
     Router::new()
         .route(LIVENESS_PATH, get(liveness))
         .route(READINESS_PATH, get(readiness))
+        .route(SYNCHRONIZATION_HEALTH_PATH, get(synchronization_health))
         .route(
             SYNCHRONIZATION_BATCH_ENDPOINT,
             post(submit_synchronization_batch),
@@ -168,20 +195,36 @@ async fn readiness(State(state): State<ApiState>) -> Response {
     }
 }
 
+async fn synchronization_health(
+    State(state): State<ApiState>,
+) -> Json<SynchronizationTelemetrySnapshot> {
+    Json(state.synchronization_telemetry().snapshot())
+}
+
 async fn submit_synchronization_batch(
     State(state): State<ApiState>,
     headers: HeaderMap,
     payload: Result<Json<SynchronizationBatchRequest>, JsonRejection>,
 ) -> Response {
+    state.synchronization_telemetry().record_request_started();
+
     let Json(request) = match payload {
         Ok(payload) => payload,
 
         Err(rejection) => {
+            state
+                .synchronization_telemetry()
+                .record_request_failure(json_rejection_failure_category(rejection.status()));
+
             return json_rejection_response(rejection);
         }
     };
 
     if let Err(error) = validate_transport_headers(&headers, &request) {
+        state
+            .synchronization_telemetry()
+            .record_request_failure(error.failure_category());
+
         return error.into_response();
     }
 
@@ -189,9 +232,15 @@ async fn submit_synchronization_batch(
         Some(timestamp) => timestamp,
 
         None => {
+            let category = SynchronizationFailureCategory::BackendTemporarilyUnavailable;
+
+            state
+                .synchronization_telemetry()
+                .record_request_failure(category);
+
             return api_error_response(
                 StatusCode::SERVICE_UNAVAILABLE,
-                SynchronizationFailureCategory::BackendTemporarilyUnavailable.as_str(),
+                category.as_str(),
                 "backend time source is unavailable",
             );
         }
@@ -202,9 +251,29 @@ async fn submit_synchronization_batch(
         .process(&request, received_at_unix_milliseconds)
         .await
     {
-        Ok(acknowledgement) => (StatusCode::OK, Json(acknowledgement)).into_response(),
+        Ok(acknowledgement) => {
+            state
+                .synchronization_telemetry()
+                .record_acknowledgement(&acknowledgement);
 
-        Err(error) => service_error_response(error),
+            (StatusCode::OK, Json(acknowledgement)).into_response()
+        }
+
+        Err(error) => {
+            state
+                .synchronization_telemetry()
+                .record_request_failure(error.failure_category());
+
+            service_error_response(error)
+        }
+    }
+}
+
+const fn json_rejection_failure_category(status: StatusCode) -> SynchronizationFailureCategory {
+    match status {
+        StatusCode::PAYLOAD_TOO_LARGE => SynchronizationFailureCategory::PayloadTooLarge,
+
+        _ => SynchronizationFailureCategory::BackendValidationFailure,
     }
 }
 
