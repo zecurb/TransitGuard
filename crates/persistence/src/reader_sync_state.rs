@@ -133,6 +133,11 @@ pub async fn mark_synchronization_batch_in_flight(
         SET
             batch_state = 'in_flight',
             attempt_count = attempt_count + 1,
+            submitted_at_unix_milliseconds =
+                COALESCE(
+                    submitted_at_unix_milliseconds,
+                    ?
+                ),
             next_retry_at_unix_milliseconds = NULL,
             last_failure_category = NULL,
             updated_at_unix_milliseconds = ?
@@ -154,6 +159,7 @@ pub async fn mark_synchronization_batch_in_flight(
             )
         "#,
     )
+    .bind(attempted_at_unix_milliseconds)
     .bind(attempted_at_unix_milliseconds)
     .bind(batch_id.to_string())
     .bind(reader_id.to_string())
@@ -628,6 +634,7 @@ mod tests {
         };
 
         assert_eq!(prepared.attempt_count(), 0);
+        assert_eq!(prepared.submitted_at_unix_milliseconds(), None);
 
         let initial_entries = prepared.entries().to_vec();
 
@@ -659,6 +666,10 @@ mod tests {
         );
 
         assert_eq!(first_submission.attempt_count(), 1);
+        assert_eq!(
+            first_submission.submitted_at_unix_milliseconds(),
+            Some(TEST_TIME + 300)
+        );
 
         let retryable = match record_synchronization_retryable_failure(
             &pool,
@@ -751,6 +762,10 @@ mod tests {
         assert_eq!(second_submission.batch_id(), prepared.batch_id());
 
         assert_eq!(second_submission.attempt_count(), 2);
+        assert_eq!(
+            second_submission.submitted_at_unix_milliseconds(),
+            Some(TEST_TIME + 300)
+        );
 
         assert_eq!(second_submission.entries(), initial_entries.as_slice());
 
@@ -884,6 +899,10 @@ mod tests {
         assert_eq!(ready[0].entries(), prepared.entries());
 
         assert_eq!(ready[0].attempt_count(), 1);
+        assert_eq!(
+            ready[0].submitted_at_unix_milliseconds(),
+            Some(TEST_TIME + 300)
+        );
 
         assert_eq!(
             ready[0].state(),
