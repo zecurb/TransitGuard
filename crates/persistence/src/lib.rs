@@ -13,6 +13,7 @@ mod postgres;
 mod reader_acknowledgement;
 mod reader_acknowledgement_application;
 mod reader_health;
+mod reader_protocol_acknowledgement;
 mod reader_queue;
 mod reader_queue_state;
 mod reader_sqlite;
@@ -38,6 +39,11 @@ pub use reader_acknowledgement::{
 pub use reader_acknowledgement_application::{
     ReaderAcknowledgementApplicationError, SynchronizationAcknowledgementApplication,
     apply_synchronization_acknowledgement,
+};
+
+pub use reader_protocol_acknowledgement::{
+    ReaderProtocolAcknowledgementError, store_protocol_synchronization_acknowledgement,
+    translate_protocol_synchronization_acknowledgement,
 };
 
 pub use reader_health::{
