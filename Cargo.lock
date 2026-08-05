@@ -2032,6 +2032,7 @@ dependencies = [
  "transitguard-domain",
  "transitguard-fare-engine",
  "transitguard-persistence",
+ "transitguard-telemetry",
 ]
 
 [[package]]

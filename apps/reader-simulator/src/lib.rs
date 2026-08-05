@@ -16,7 +16,8 @@ pub use synchronization_transport::{SynchronizationHttpClient, SynchronizationHt
 pub use synchronization_submission::{
     SynchronizationFailureDisposition, SynchronizationSubmissionError,
     SynchronizationSubmissionResult, SynchronizationTransport, SynchronizationTransportFailure,
-    submit_in_flight_synchronization_batch, synchronization_failure_disposition,
+    submit_in_flight_synchronization_batch, submit_in_flight_synchronization_batch_with_telemetry,
+    synchronization_failure_disposition,
 };
 
 pub use fare_processing::{

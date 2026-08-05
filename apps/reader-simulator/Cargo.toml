@@ -16,6 +16,7 @@ transitguard-device-protocol = { path = "../../crates/device-protocol" }
 transitguard-domain = { path = "../../crates/domain" }
 transitguard-fare-engine = { path = "../../crates/fare-engine" }
 transitguard-persistence = { path = "../../crates/persistence" }
+transitguard-telemetry = { path = "../../crates/telemetry" }
 
 [dev-dependencies]
 axum = "0.8"

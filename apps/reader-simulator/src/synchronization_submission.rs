@@ -22,6 +22,7 @@ use transitguard_persistence::{
     record_synchronization_permanent_failure, record_synchronization_retryable_failure,
     store_protocol_synchronization_acknowledgement,
 };
+use transitguard_telemetry::SynchronizationTelemetry;
 
 use crate::synchronization_transport::{SynchronizationHttpClient, SynchronizationHttpClientError};
 
@@ -227,12 +228,45 @@ pub async fn submit_in_flight_synchronization_batch<T: SynchronizationTransport>
     completed_at_unix_milliseconds: i64,
     retry_at_unix_milliseconds: i64,
 ) -> Result<SynchronizationSubmissionResult, SynchronizationSubmissionError> {
+    let telemetry = SynchronizationTelemetry::new();
+
+    submit_in_flight_synchronization_batch_with_telemetry(
+        pool,
+        transport,
+        &telemetry,
+        reader_id,
+        batch_id,
+        completed_at_unix_milliseconds,
+        retry_at_unix_milliseconds,
+    )
+    .await
+}
+
+/// Submits one in-flight synchronization batch while recording sanitized
+/// process-local telemetry.
+///
+/// The recorder receives request, acknowledgement, entry-outcome, and stable
+/// transport-failure counters. It never receives transaction envelopes,
+/// credentials, response bodies, database errors, or stack traces.
+pub async fn submit_in_flight_synchronization_batch_with_telemetry<T: SynchronizationTransport>(
+    pool: &SqlitePool,
+    transport: &T,
+    telemetry: &SynchronizationTelemetry,
+    reader_id: ReaderId,
+    batch_id: SynchronizationBatchId,
+    completed_at_unix_milliseconds: i64,
+    retry_at_unix_milliseconds: i64,
+) -> Result<SynchronizationSubmissionResult, SynchronizationSubmissionError> {
     let request = load_synchronization_batch_request(pool, reader_id, batch_id).await?;
+
+    telemetry.record_request_started();
 
     match transport.submit(&request).await {
         Ok(acknowledgement) => {
             let stored =
                 store_protocol_synchronization_acknowledgement(pool, &acknowledgement).await?;
+
+            telemetry.record_acknowledgement(&acknowledgement);
 
             let applied_at_unix_milliseconds =
                 completed_at_unix_milliseconds.max(acknowledgement.received_at_unix_milliseconds());
@@ -254,6 +288,8 @@ pub async fn submit_in_flight_synchronization_batch<T: SynchronizationTransport>
         Err(failure) => {
             let category = failure.category();
             let failure_category = category.as_str();
+
+            telemetry.record_request_failure(category);
 
             match synchronization_failure_disposition(category) {
                 SynchronizationFailureDisposition::Retry => {
@@ -334,10 +370,12 @@ mod tests {
         load_offline_queue, load_synchronization_batch, mark_synchronization_batch_in_flight,
         run_reader_sqlite_migrations,
     };
+    use transitguard_telemetry::SynchronizationTelemetry;
 
     use super::{
         SynchronizationSubmissionResult, SynchronizationTransport, SynchronizationTransportFailure,
         SynchronizationTransportFuture, submit_in_flight_synchronization_batch,
+        submit_in_flight_synchronization_batch_with_telemetry,
     };
 
     const TEST_TIME: i64 = 1_700_000_000_000;
@@ -587,9 +625,12 @@ mod tests {
 
         let transport = FakeTransport::acknowledging(TEST_TIME + 350);
 
-        let result = submit_in_flight_synchronization_batch(
+        let telemetry = SynchronizationTelemetry::new();
+
+        let result = submit_in_flight_synchronization_batch_with_telemetry(
             &pool,
             &transport,
+            &telemetry,
             reader_id,
             submitted.batch_id(),
             TEST_TIME + 400,
@@ -626,6 +667,14 @@ mod tests {
         assert_eq!(application.manual_review_entries(), 0);
         assert_eq!(application.applied_at_unix_milliseconds(), TEST_TIME + 400);
         assert_eq!(application.last_acknowledged_sequence(), 2);
+
+        let telemetry_snapshot = telemetry.snapshot();
+
+        assert_eq!(telemetry_snapshot.requests_total, 1);
+        assert_eq!(telemetry_snapshot.acknowledgements_total, 1);
+        assert_eq!(telemetry_snapshot.entries_total, 2);
+        assert_eq!(telemetry_snapshot.outcomes.acknowledged, 2);
+        assert_eq!(telemetry_snapshot.request_failures_total, 0);
 
         let batch = match load_synchronization_batch(&pool, reader_id, submitted.batch_id()).await {
             Ok(value) => value,
@@ -666,9 +715,12 @@ mod tests {
 
         let transport = FakeTransport::failing(SynchronizationFailureCategory::NetworkTimeout);
 
-        let result = submit_in_flight_synchronization_batch(
+        let telemetry = SynchronizationTelemetry::new();
+
+        let result = submit_in_flight_synchronization_batch_with_telemetry(
             &pool,
             &transport,
+            &telemetry,
             reader_id,
             submitted.batch_id(),
             TEST_TIME + 400,
@@ -704,6 +756,14 @@ mod tests {
             Some(TEST_TIME + 600)
         );
         assert_eq!(batch.last_failure_category(), Some("network_timeout"));
+
+        let telemetry_snapshot = telemetry.snapshot();
+
+        assert_eq!(telemetry_snapshot.requests_total, 1);
+        assert_eq!(telemetry_snapshot.acknowledgements_total, 0);
+        assert_eq!(telemetry_snapshot.entries_total, 0);
+        assert_eq!(telemetry_snapshot.request_failures_total, 1);
+        assert_eq!(telemetry_snapshot.failures.network_timeout, 1);
 
         let queue = match load_offline_queue(&pool, reader_id).await {
             Ok(value) => value,
