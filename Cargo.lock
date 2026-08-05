@@ -2019,12 +2019,14 @@ dependencies = [
 name = "transitguard-reader-simulator"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "reqwest",
  "serde",
  "serde_json",
  "sqlx",
  "thiserror",
  "tokio",
+ "transitguard-api",
  "transitguard-device-protocol",
  "transitguard-domain",
  "transitguard-fare-engine",

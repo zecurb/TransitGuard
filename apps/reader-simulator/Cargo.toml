@@ -18,10 +18,13 @@ transitguard-fare-engine = { path = "../../crates/fare-engine" }
 transitguard-persistence = { path = "../../crates/persistence" }
 
 [dev-dependencies]
+axum = "0.8"
+transitguard-api = { path = "../api" }
 tokio = {
     version = "1",
     features = [
         "macros",
+        "net",
         "rt-multi-thread",
     ],
 }
