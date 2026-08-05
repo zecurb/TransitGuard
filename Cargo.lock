@@ -2022,10 +2022,13 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sqlx",
  "thiserror",
+ "tokio",
  "transitguard-device-protocol",
  "transitguard-domain",
  "transitguard-fare-engine",
+ "transitguard-persistence",
 ]
 
 [[package]]

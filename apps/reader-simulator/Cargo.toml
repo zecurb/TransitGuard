@@ -10,10 +10,21 @@ repository.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sqlx.workspace = true
 thiserror.workspace = true
 transitguard-device-protocol = { path = "../../crates/device-protocol" }
 transitguard-domain = { path = "../../crates/domain" }
 transitguard-fare-engine = { path = "../../crates/fare-engine" }
+transitguard-persistence = { path = "../../crates/persistence" }
+
+[dev-dependencies]
+tokio = {
+    version = "1",
+    features = [
+        "macros",
+        "rt-multi-thread",
+    ],
+}
 
 [lints]
 workspace = true
