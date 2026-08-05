@@ -2044,6 +2044,10 @@ version = "0.1.0"
 [[package]]
 name = "transitguard-telemetry"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "transitguard-device-protocol",
+]
 
 [[package]]
 name = "transitguard-worker"
