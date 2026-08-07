@@ -6,8 +6,19 @@
 pub mod demo;
 pub mod fare_processing;
 pub mod scenario;
+pub mod synchronization_submission;
+pub mod synchronization_transport;
 
 pub use demo::{DemoScenarioError, run_demo_scenario};
+
+pub use synchronization_transport::{SynchronizationHttpClient, SynchronizationHttpClientError};
+
+pub use synchronization_submission::{
+    SynchronizationFailureDisposition, SynchronizationSubmissionError,
+    SynchronizationSubmissionResult, SynchronizationTransport, SynchronizationTransportFailure,
+    submit_in_flight_synchronization_batch, submit_in_flight_synchronization_batch_with_telemetry,
+    synchronization_failure_disposition,
+};
 
 pub use fare_processing::{
     ReaderFareContext, ReaderFareEvaluation, ReaderFareProcessingError, ReaderTapDecision,

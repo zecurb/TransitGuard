@@ -7,12 +7,28 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sqlx.workspace = true
 thiserror.workspace = true
 transitguard-device-protocol = { path = "../../crates/device-protocol" }
 transitguard-domain = { path = "../../crates/domain" }
 transitguard-fare-engine = { path = "../../crates/fare-engine" }
+transitguard-persistence = { path = "../../crates/persistence" }
+transitguard-telemetry = { path = "../../crates/telemetry" }
+
+[dev-dependencies]
+axum = "0.8"
+transitguard-api = { path = "../api" }
+tokio = {
+    version = "1",
+    features = [
+        "macros",
+        "net",
+        "rt-multi-thread",
+    ],
+}
 
 [lints]
 workspace = true

@@ -13,12 +13,16 @@ mod postgres;
 mod reader_acknowledgement;
 mod reader_acknowledgement_application;
 mod reader_health;
+mod reader_protocol_acknowledgement;
 mod reader_queue;
 mod reader_queue_state;
 mod reader_sqlite;
 mod reader_sync;
+mod reader_sync_failure;
+mod reader_sync_request;
 mod reader_sync_state;
 mod repositories;
+mod synchronization_ingest_record;
 mod transaction;
 
 pub use codec::PostgresValueCodec;
@@ -36,6 +40,11 @@ pub use reader_acknowledgement::{
 pub use reader_acknowledgement_application::{
     ReaderAcknowledgementApplicationError, SynchronizationAcknowledgementApplication,
     apply_synchronization_acknowledgement,
+};
+
+pub use reader_protocol_acknowledgement::{
+    ReaderProtocolAcknowledgementError, store_protocol_synchronization_acknowledgement,
+    translate_protocol_synchronization_acknowledgement,
 };
 
 pub use reader_health::{
@@ -64,6 +73,15 @@ pub use reader_sync::{
     SynchronizationBatchState, create_synchronization_batch, load_synchronization_batch,
 };
 
+pub use reader_sync_failure::{
+    ReaderSynchronizationFailureError, record_synchronization_manual_review,
+    record_synchronization_permanent_failure,
+};
+
+pub use reader_sync_request::{
+    ReaderSynchronizationRequestError, load_synchronization_batch_request,
+};
+
 pub use reader_sync_state::{
     ReaderSynchronizationStateError, load_ready_synchronization_batches,
     mark_synchronization_batch_in_flight, record_synchronization_retryable_failure,
@@ -72,7 +90,14 @@ pub use reader_sync_state::{
 
 pub use repositories::{
     PostgresDomainEventRepository, PostgresFareCredentialRepository,
-    PostgresReaderEquipmentRepository, PostgresTransitAccountRepository,
+    PostgresReaderEquipmentRepository, PostgresSynchronizationIngestRepository,
+    PostgresTransitAccountRepository, SynchronizationIngestDisposition,
+    SynchronizationIngestPersistenceError,
+};
+
+pub use synchronization_ingest_record::{
+    PreparedSynchronizationIngest, PreparedSynchronizationIngestEntry,
+    SynchronizationIngestRecordError,
 };
 
 pub use transaction::PostgresTransactionManager;

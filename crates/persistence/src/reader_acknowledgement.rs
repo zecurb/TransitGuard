@@ -8,10 +8,7 @@ use transitguard_domain::{
     FareTransactionId, LocalSequenceNumber, ReaderId, SynchronizationBatchId,
 };
 
-use crate::{
-    ReaderSynchronizationError, SynchronizationBatch, SynchronizationBatchState,
-    load_synchronization_batch,
-};
+use crate::{ReaderSynchronizationError, SynchronizationBatch, load_synchronization_batch};
 
 /// Backend resolution for one transaction inside a synchronization batch.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -565,12 +562,6 @@ fn validate_against_batch(
         }
     }
 
-    if batch.state() != SynchronizationBatchState::InFlight {
-        return Err(ReaderAcknowledgementError::BatchNotInFlight {
-            batch_id: batch.batch_id(),
-        });
-    }
-
     Ok(())
 }
 
@@ -713,9 +704,9 @@ mod tests {
 
     use crate::{
         OfflineTransactionDraft, ReaderDatabaseIdentity, ReaderSqliteConfig, SynchronizationBatch,
-        bind_reader_database, connect_reader_sqlite, create_synchronization_batch,
-        enqueue_offline_transaction, mark_synchronization_batch_in_flight,
-        run_reader_sqlite_migrations,
+        apply_synchronization_acknowledgement, bind_reader_database, connect_reader_sqlite,
+        create_synchronization_batch, enqueue_offline_transaction,
+        mark_synchronization_batch_in_flight, run_reader_sqlite_migrations,
     };
 
     use super::{
@@ -1060,6 +1051,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn acknowledgement_replays_remain_idempotent_after_application() {
+        let reader_id = ReaderId::generate();
+
+        let (path, pool) = open_database("replay-after-application", reader_id).await;
+
+        let batch = submitted_batch(&pool, reader_id, 1).await;
+
+        let value = acknowledgement(&batch, vec![SynchronizationEntryResolution::Acknowledged]);
+
+        let first = store_synchronization_acknowledgement(&pool, &value).await;
+
+        assert!(matches!(
+            first,
+            Ok(ref stored) if !stored.replayed()
+        ));
+
+        let applied = apply_synchronization_acknowledgement(
+            &pool,
+            reader_id,
+            batch.batch_id(),
+            TEST_TIME + 500,
+        )
+        .await;
+
+        assert!(matches!(
+            applied,
+            Ok(report) if report.applied_now()
+        ));
+
+        let replay = store_synchronization_acknowledgement(&pool, &value).await;
+
+        assert!(matches!(
+            replay,
+            Ok(ref stored) if stored.replayed()
+        ));
+
+        let conflicting = acknowledgement(
+            &batch,
+            vec![SynchronizationEntryResolution::PermanentFailure {
+                failure_category: String::from("invalid_envelope"),
+            }],
+        );
+
+        let conflict = store_synchronization_acknowledgement(&pool, &conflicting).await;
+
+        assert!(matches!(
+            conflict,
+            Err(
+                ReaderAcknowledgementError::ConflictingReplay {
+                    batch_id,
+                }
+            ) if batch_id == batch.batch_id()
+        ));
+
+        pool.close().await;
+        remove_database(&path);
+    }
+
+    #[tokio::test]
     async fn conflicting_acknowledgement_replay_is_rejected() {
         let reader_id = ReaderId::generate();
 
@@ -1091,6 +1141,96 @@ mod tests {
                     }
             ) if batch_id == batch.batch_id()
         ));
+
+        pool.close().await;
+        remove_database(&path);
+    }
+
+    #[tokio::test]
+    async fn acknowledgement_constraints_require_failure_metadata() {
+        let reader_id = ReaderId::generate();
+
+        let (path, pool) = open_database("failure-metadata-constraints", reader_id).await;
+
+        let batch = submitted_batch(&pool, reader_id, 2).await;
+
+        let value = acknowledgement(
+            &batch,
+            vec![
+                SynchronizationEntryResolution::RetryableFailure {
+                    failure_category: String::from("backend_timeout"),
+                    retry_at_unix_milliseconds: TEST_TIME + 1_000,
+                },
+                SynchronizationEntryResolution::PermanentFailure {
+                    failure_category: String::from("invalid_envelope"),
+                },
+            ],
+        );
+
+        let stored = store_synchronization_acknowledgement(&pool, &value).await;
+
+        assert!(stored.is_ok());
+
+        let retryable_without_category = sqlx::query(
+            r#"
+            UPDATE synchronization_acknowledgement_entries
+            SET failure_category = NULL
+            WHERE
+                batch_id = ?
+                AND entry_position = 0
+            "#,
+        )
+        .bind(batch.batch_id().to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(retryable_without_category.is_err());
+
+        let retryable_without_time = sqlx::query(
+            r#"
+            UPDATE synchronization_acknowledgement_entries
+            SET retry_at_unix_milliseconds = NULL
+            WHERE
+                batch_id = ?
+                AND entry_position = 0
+            "#,
+        )
+        .bind(batch.batch_id().to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(retryable_without_time.is_err());
+
+        let permanent_without_category = sqlx::query(
+            r#"
+            UPDATE synchronization_acknowledgement_entries
+            SET failure_category = NULL
+            WHERE
+                batch_id = ?
+                AND entry_position = 1
+            "#,
+        )
+        .bind(batch.batch_id().to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(permanent_without_category.is_err());
+
+        let permanent_with_retry_time = sqlx::query(
+            r#"
+            UPDATE synchronization_acknowledgement_entries
+            SET retry_at_unix_milliseconds = ?
+            WHERE
+                batch_id = ?
+                AND entry_position = 1
+            "#,
+        )
+        .bind(TEST_TIME + 2_000)
+        .bind(batch.batch_id().to_string())
+        .execute(&pool)
+        .await;
+
+        assert!(permanent_with_retry_time.is_err());
 
         pool.close().await;
         remove_database(&path);

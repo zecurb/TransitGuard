@@ -133,6 +133,11 @@ pub async fn mark_synchronization_batch_in_flight(
         SET
             batch_state = 'in_flight',
             attempt_count = attempt_count + 1,
+            submitted_at_unix_milliseconds =
+                COALESCE(
+                    submitted_at_unix_milliseconds,
+                    ?
+                ),
             next_retry_at_unix_milliseconds = NULL,
             last_failure_category = NULL,
             updated_at_unix_milliseconds = ?
@@ -154,6 +159,7 @@ pub async fn mark_synchronization_batch_in_flight(
             )
         "#,
     )
+    .bind(attempted_at_unix_milliseconds)
     .bind(attempted_at_unix_milliseconds)
     .bind(batch_id.to_string())
     .bind(reader_id.to_string())
@@ -628,6 +634,7 @@ mod tests {
         };
 
         assert_eq!(prepared.attempt_count(), 0);
+        assert_eq!(prepared.submitted_at_unix_milliseconds(), None);
 
         let initial_entries = prepared.entries().to_vec();
 
@@ -659,6 +666,10 @@ mod tests {
         );
 
         assert_eq!(first_submission.attempt_count(), 1);
+        assert_eq!(
+            first_submission.submitted_at_unix_milliseconds(),
+            Some(TEST_TIME + 300)
+        );
 
         let retryable = match record_synchronization_retryable_failure(
             &pool,
@@ -751,6 +762,10 @@ mod tests {
         assert_eq!(second_submission.batch_id(), prepared.batch_id());
 
         assert_eq!(second_submission.attempt_count(), 2);
+        assert_eq!(
+            second_submission.submitted_at_unix_milliseconds(),
+            Some(TEST_TIME + 300)
+        );
 
         assert_eq!(second_submission.entries(), initial_entries.as_slice());
 
@@ -884,6 +899,10 @@ mod tests {
         assert_eq!(ready[0].entries(), prepared.entries());
 
         assert_eq!(ready[0].attempt_count(), 1);
+        assert_eq!(
+            ready[0].submitted_at_unix_milliseconds(),
+            Some(TEST_TIME + 300)
+        );
 
         assert_eq!(
             ready[0].state(),
@@ -1032,6 +1051,150 @@ mod tests {
         assert_eq!(ready[0].batch_id(), first.batch_id());
 
         assert_ne!(first.batch_id(), second.batch_id());
+
+        pool.close().await;
+        remove_database(&path);
+    }
+
+    #[tokio::test]
+    async fn submission_rolls_back_when_batch_entry_is_not_in_flight() {
+        let reader_id = ReaderId::generate();
+
+        let (path, _config, pool) = open_database("entry-conflict", reader_id).await;
+
+        enqueue(&pool, reader_id).await;
+        enqueue(&pool, reader_id).await;
+
+        let prepared = match create_synchronization_batch(
+            &pool,
+            reader_id,
+            DeviceProtocolVersion::CURRENT,
+            TEST_TIME + 200,
+            10,
+        )
+        .await
+        {
+            Ok(value) => value,
+
+            Err(error) => {
+                pool.close().await;
+                remove_database(&path);
+
+                panic!("batch creation failed: {error}")
+            }
+        };
+
+        let conflicting_transaction_id = prepared.entries()[0].transaction_id();
+
+        let state_update = sqlx::query(
+            r#"
+            UPDATE offline_transactions
+            SET
+                queue_state = 'retryable_failure',
+                next_retry_at_unix_milliseconds = ?,
+                last_failure_category = 'test_conflict',
+                updated_at_unix_milliseconds = ?
+            WHERE
+                fare_transaction_id = ?
+                AND reader_id = ?
+                AND queue_state = 'in_flight'
+            "#,
+        )
+        .bind(TEST_TIME + 500)
+        .bind(TEST_TIME + 250)
+        .bind(conflicting_transaction_id.to_string())
+        .bind(reader_id.to_string())
+        .execute(&pool)
+        .await;
+
+        let state_update = match state_update {
+            Ok(value) => value,
+
+            Err(error) => {
+                pool.close().await;
+                remove_database(&path);
+
+                panic!("queue-state preparation failed: {error}")
+            }
+        };
+
+        assert_eq!(state_update.rows_affected(), 1);
+
+        let result = mark_synchronization_batch_in_flight(
+            &pool,
+            reader_id,
+            prepared.batch_id(),
+            TEST_TIME + 300,
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(
+                ReaderSynchronizationStateError::
+                    BatchEntryConflict {
+                        batch_id,
+                        expected: 2,
+                        updated: 1,
+                    }
+            ) if batch_id == prepared.batch_id()
+        ));
+
+        let ready =
+            match load_ready_synchronization_batches(&pool, reader_id, TEST_TIME + 300, 10).await {
+                Ok(value) => value,
+
+                Err(error) => {
+                    pool.close().await;
+                    remove_database(&path);
+
+                    panic!("ready-batch load failed: {error}")
+                }
+            };
+
+        assert_eq!(ready.len(), 1);
+        assert_eq!(ready[0].batch_id(), prepared.batch_id());
+
+        assert_eq!(ready[0].state(), SynchronizationBatchState::Prepared);
+
+        assert_eq!(ready[0].attempt_count(), 0);
+
+        let queue = match load_offline_queue(&pool, reader_id).await {
+            Ok(value) => value,
+
+            Err(error) => {
+                pool.close().await;
+                remove_database(&path);
+
+                panic!("queue load failed: {error}")
+            }
+        };
+
+        assert_eq!(queue.len(), 2);
+
+        assert!(
+            queue
+                .iter()
+                .all(|transaction| transaction.attempt_count() == 0)
+        );
+
+        assert_eq!(
+            queue
+                .iter()
+                .filter(|transaction| { transaction.queue_state() == OfflineQueueState::InFlight })
+                .count(),
+            1
+        );
+
+        assert_eq!(
+            queue
+                .iter()
+                .filter(|transaction| {
+                    transaction.queue_state() == OfflineQueueState::RetryableFailure
+                })
+                .count(),
+            1
+        );
 
         pool.close().await;
         remove_database(&path);

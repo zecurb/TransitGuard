@@ -85,6 +85,7 @@ pub struct SynchronizationBatch {
     last_local_sequence_number: LocalSequenceNumber,
     state: SynchronizationBatchState,
     attempt_count: u32,
+    submitted_at_unix_milliseconds: Option<i64>,
     next_retry_at_unix_milliseconds: Option<i64>,
     last_failure_category: Option<String>,
     created_at_unix_milliseconds: i64,
@@ -133,6 +134,12 @@ impl SynchronizationBatch {
     #[must_use]
     pub const fn attempt_count(&self) -> u32 {
         self.attempt_count
+    }
+
+    /// Returns the timestamp preserved across submission retries.
+    #[must_use]
+    pub const fn submitted_at_unix_milliseconds(&self) -> Option<i64> {
+        self.submitted_at_unix_milliseconds
     }
 
     /// Returns the next permitted retry time.
@@ -255,6 +262,7 @@ struct StoredSynchronizationBatch {
     last_local_sequence_number: i64,
     batch_state: String,
     attempt_count: i64,
+    submitted_at_unix_milliseconds: Option<i64>,
     next_retry_at_unix_milliseconds: Option<i64>,
     last_failure_category: Option<String>,
     created_at_unix_milliseconds: i64,
@@ -385,13 +393,14 @@ pub async fn create_synchronization_batch(
             last_local_sequence_number,
             batch_state,
             attempt_count,
+            submitted_at_unix_milliseconds,
             next_retry_at_unix_milliseconds,
             last_failure_category,
             created_at_unix_milliseconds,
             updated_at_unix_milliseconds
         )
         VALUES (
-            ?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?, ?
+            ?, ?, ?, ?, ?, ?, 0, NULL, NULL, NULL, ?, ?
         )
         "#,
     )
@@ -498,6 +507,7 @@ pub async fn create_synchronization_batch(
         last_local_sequence_number: last_sequence,
         state: SynchronizationBatchState::Prepared,
         attempt_count: 0,
+        submitted_at_unix_milliseconds: None,
         next_retry_at_unix_milliseconds: None,
         last_failure_category: None,
         created_at_unix_milliseconds,
@@ -522,6 +532,7 @@ pub async fn load_synchronization_batch(
                 last_local_sequence_number,
                 batch_state,
                 attempt_count,
+                submitted_at_unix_milliseconds,
                 next_retry_at_unix_milliseconds,
                 last_failure_category,
                 created_at_unix_milliseconds,
@@ -624,6 +635,15 @@ fn decode_stored_batch(
         .map_err(|_| ReaderSynchronizationError::invalid_stored_value("attempt_count"))?;
 
     if matches!(
+        stored.submitted_at_unix_milliseconds,
+        Some(value) if value < 0
+    ) {
+        return Err(ReaderSynchronizationError::invalid_stored_value(
+            "submitted_at_unix_milliseconds",
+        ));
+    }
+
+    if matches!(
         stored.next_retry_at_unix_milliseconds,
         Some(value) if value < 0
     ) {
@@ -696,6 +716,7 @@ fn decode_stored_batch(
         last_local_sequence_number: last_sequence,
         state,
         attempt_count,
+        submitted_at_unix_milliseconds: stored.submitted_at_unix_milliseconds,
         next_retry_at_unix_milliseconds: stored.next_retry_at_unix_milliseconds,
         last_failure_category: stored.last_failure_category,
         created_at_unix_milliseconds: stored.created_at_unix_milliseconds,
