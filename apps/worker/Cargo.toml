@@ -7,6 +7,25 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+thiserror.workspace = true
+tokio = {
+    version = "1",
+    features = [
+        "macros",
+        "rt-multi-thread",
+    ],
+}
+transitguard-domain = {
+    path = "../../crates/domain",
+}
+transitguard-persistence = {
+    path = "../../crates/persistence",
+}
+
+[dev-dependencies]
+serde_json.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
 
 [lints]
 workspace = true

@@ -2064,6 +2064,15 @@ dependencies = [
 [[package]]
 name = "transitguard-worker"
 version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "transitguard-domain",
+ "transitguard-persistence",
+ "uuid",
+]
 
 [[package]]
 name = "try-lock"
