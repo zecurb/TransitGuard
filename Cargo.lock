@@ -2038,6 +2038,13 @@ dependencies = [
 [[package]]
 name = "transitguard-reconciliation"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "transitguard-domain",
+ "transitguard-fare-engine",
+ "uuid",
+]
 
 [[package]]
 name = "transitguard-security"
