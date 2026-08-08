@@ -2013,6 +2013,7 @@ dependencies = [
  "transitguard-application",
  "transitguard-device-protocol",
  "transitguard-domain",
+ "transitguard-reconciliation",
  "uuid",
 ]
 

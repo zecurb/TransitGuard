@@ -100,12 +100,6 @@ CREATE TABLE reconciliation_records (
             ) = '7'
         ),
 
-    CONSTRAINT reconciliation_records_reader_variant SUBSTRING(
-                reader_id::TEXT
-                FROM 15 FOR 1
-            ) = '7'
-        ),
-
     CONSTRAINT reconciliation_records_reader_variant
         CHECK (
             SUBSTRING(

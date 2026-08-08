@@ -331,6 +331,12 @@ impl DiscrepancyCase {
         self.state
     }
 
+    /// Returns when the discrepancy case was created.
+    #[must_use]
+    pub const fn created_at(&self) -> ReconciliationTime {
+        self.created_at
+    }
+
     /// Returns final resolution metadata, when finalized.
     #[must_use]
     pub const fn resolution(&self) -> Option<DiscrepancyResolution> {

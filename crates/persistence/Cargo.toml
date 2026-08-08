@@ -13,6 +13,7 @@ thiserror.workspace = true
 transitguard-application = { path = "../application" }
 transitguard-device-protocol = { path = "../device-protocol" }
 transitguard-domain = { path = "../domain" }
+transitguard-reconciliation = { path = "../reconciliation" }
 uuid.workspace = true
 
 [dev-dependencies]

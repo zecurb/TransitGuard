@@ -169,7 +169,7 @@ impl From<ProductApplicationOutcome> for ReconciliationProductEvidence {
 }
 
 /// Immutable evidence consumed by the reconciliation kernel.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ReconciliationEvidence {
     policy_id: FarePolicyId,
     policy_version: FarePolicyVersion,

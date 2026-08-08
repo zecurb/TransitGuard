@@ -21,6 +21,7 @@ mod reader_sync;
 mod reader_sync_failure;
 mod reader_sync_request;
 mod reader_sync_state;
+mod reconciliation_persistence;
 mod repositories;
 mod synchronization_ingest_record;
 mod transaction;
@@ -88,11 +89,16 @@ pub use reader_sync_state::{
     recover_interrupted_synchronization_batches,
 };
 
+pub use reconciliation_persistence::{
+    PreparedReconciliationPersistence, ReconciliationPreparationError,
+};
+
 pub use repositories::{
     PostgresDomainEventRepository, PostgresFareCredentialRepository,
-    PostgresReaderEquipmentRepository, PostgresSynchronizationIngestRepository,
-    PostgresTransitAccountRepository, SynchronizationIngestDisposition,
-    SynchronizationIngestPersistenceError,
+    PostgresReaderEquipmentRepository, PostgresReconciliationRepository,
+    PostgresSynchronizationIngestRepository, PostgresTransitAccountRepository,
+    ReconciliationPersistenceDisposition, ReconciliationRepositoryError, StoredReconciliation,
+    SynchronizationIngestDisposition, SynchronizationIngestPersistenceError,
 };
 
 pub use synchronization_ingest_record::{
