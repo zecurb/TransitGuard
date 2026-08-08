@@ -94,11 +94,13 @@ pub use reconciliation_persistence::{
 };
 
 pub use repositories::{
-    PostgresDomainEventRepository, PostgresFareCredentialRepository,
-    PostgresReaderEquipmentRepository, PostgresReconciliationRepository,
+    ClaimedReconciliationWork, MAX_RECONCILIATION_WORK_BATCH_SIZE, PostgresDomainEventRepository,
+    PostgresFareCredentialRepository, PostgresReaderEquipmentRepository,
+    PostgresReconciliationRepository, PostgresReconciliationWorkQueue,
     PostgresSynchronizationIngestRepository, PostgresTransitAccountRepository,
-    ReconciliationPersistenceDisposition, ReconciliationRepositoryError, StoredReconciliation,
-    SynchronizationIngestDisposition, SynchronizationIngestPersistenceError,
+    ReconciliationPersistenceDisposition, ReconciliationRepositoryError,
+    ReconciliationWorkQueueError, ReconciliationWorkerId, ReconciliationWorkerIdError,
+    StoredReconciliation, SynchronizationIngestDisposition, SynchronizationIngestPersistenceError,
 };
 
 pub use synchronization_ingest_record::{
