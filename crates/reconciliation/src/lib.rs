@@ -212,6 +212,45 @@ impl ReconciliationEvidence {
         }
     }
 
+    /// Constructs reconciliation evidence for crate integration tests.
+    ///
+    /// Production code should prefer [`Self::from_fare_evaluation`].
+    #[doc(hidden)]
+    #[allow(clippy::too_many_arguments)]
+    pub const fn test_fixture(
+        policy_id: FarePolicyId,
+        policy_version: FarePolicyVersion,
+        event_time: EventTime,
+        decision: ReconciliationDecision,
+        eligibility: EligibilityClassification,
+        eligibility_discount: Money,
+        transfer_eligible: bool,
+        transfer_discount: Money,
+        fare_cap_discount: Money,
+        daily_cap_reached: bool,
+        weekly_cap_reached: bool,
+        product_outcome: ReconciliationProductEvidence,
+        product_discount: Money,
+        final_fare: Money,
+    ) -> Self {
+        Self {
+            policy_id,
+            policy_version,
+            event_time,
+            decision,
+            eligibility,
+            eligibility_discount,
+            transfer_eligible,
+            transfer_discount,
+            fare_cap_discount,
+            daily_cap_reached,
+            weekly_cap_reached,
+            product_outcome,
+            product_discount,
+            final_fare,
+        }
+    }
+
     /// Returns the fare-policy identity.
     #[must_use]
     pub const fn policy_id(self) -> FarePolicyId {
@@ -747,3 +786,15 @@ mod tests {
         assert_eq!(outcomes.len(), 11);
     }
 }
+
+pub mod adjustment;
+pub mod discrepancy;
+
+pub use adjustment::{
+    ProposedAdjustment, ProposedAdjustmentDirection, ProposedAdjustmentError, ProposedAdjustmentId,
+};
+pub use discrepancy::{
+    DiscrepancyCase, DiscrepancyCaseError, DiscrepancyCaseId, DiscrepancyCategory,
+    DiscrepancyResolution, DiscrepancyResolutionAction, DiscrepancyResolutionReason,
+    DiscrepancyState, DiscrepancyStatusTransition, ResolutionActorId,
+};
