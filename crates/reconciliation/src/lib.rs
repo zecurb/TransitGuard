@@ -4,7 +4,19 @@
 //! backend fare evidence. The comparison kernel performs no database access,
 //! network access, clock reads, or other hidden I/O.
 
+pub mod fingerprint;
+pub mod identity;
+pub mod record;
+
 use core::fmt;
+pub use fingerprint::{
+    EVIDENCE_FINGERPRINT_VERSION, EvidenceFingerprint, EvidenceFingerprintError,
+    fingerprint_evidence,
+};
+pub use identity::{ReconciliationId, ReconciliationIdError};
+pub use record::{
+    ReconciliationRecord, ReconciliationRecordError, ReconciliationTime, ReconciliationTimeError,
+};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
